@@ -30,7 +30,7 @@ jobs:
 
       - run: npm run build:site
 
-      - uses: actions/upload-pages-artifact@3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: deploy
 
@@ -42,4 +42,4 @@ jobs:
     needs: build
     steps:
       - id: deployment
-        uses: actions/deploy-pages@4
+        uses: actions/deploy-pages@v4
