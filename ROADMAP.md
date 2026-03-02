@@ -78,3 +78,7 @@
 
 ### Training
 - Gradient computation (autograd) for training
+
+### Memory Management
+- FinalizationRegistry for best-effort auto-cleanup when arrays are GC'd
+- Scoped API (`gpu.scoped(fn)`) for deterministic dispose on scope exit
