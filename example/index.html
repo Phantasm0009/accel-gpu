@@ -2,10 +2,10 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>@accel/gpu Example</title>
+  <title>accel-gpu Demo</title>
 </head>
 <body>
-  <h1>@accel/gpu Demo</h1>
+  <h1>accel-gpu Demo</h1>
   <pre id="output">Loading...</pre>
 
   <script type="module">
@@ -15,7 +15,7 @@
       const output = document.getElementById("output");
       try {
         const gpu = await init();
-        output.textContent = "WebGPU initialized!\n\n";
+        output.textContent = `Backend: ${gpu.backendType}\n\n`;
 
         // Add
         const a = gpu.array(new Float32Array([1, 2, 3, 4]));

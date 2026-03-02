@@ -1,25 +1,25 @@
-# @accel/gpu
+# accel-gpu
 
 **NumPy for the browser GPU — zero shaders, zero dependencies.**
 
-A lightweight WebGPU wrapper for data processing and math. No WGSL required. Automatic CPU fallback. Perfect for local-first AI, data dashboards, and heavy array computations.
+A lightweight WebGPU wrapper for data processing and math. No WGSL required. Automatic WebGL2 and CPU fallback. Perfect for local-first AI, data dashboards, and heavy array computations.
 
-[![npm](https://img.shields.io/npm/v/@accel/gpu)](https://www.npmjs.com/package/@accel/gpu)
+[![npm](https://img.shields.io/npm/v/accel-gpu)](https://www.npmjs.com/package/accel-gpu)
 
 ## Install
 
 ```bash
-npm install @accel/gpu
+npm install accel-gpu
 ```
 
 ## Quick Start
 
 ```javascript
-import { init, matmul, softmax } from "@accel/gpu";
+import { init, matmul, softmax } from "accel-gpu";
 
 const gpu = await init();
 
-// Create GPU-backed arrays (or CPU if WebGPU unavailable)
+// Create GPU-backed arrays (WebGPU, WebGL2, or CPU)
 const a = gpu.array([1, 2, 3, 4]);
 const b = gpu.array([5, 6, 7, 8]);
 
@@ -42,18 +42,19 @@ console.log(await probs.toArray());
 ## Demos
 
 - **[Demo](https://phantasm0009.github.io/accel-gpu/example/)** — Basic usage
-- **[Benchmarks](https://phantasm0009.github.io/accel-gpu/benchmark/)** — GPU vs CPU performance
+- **[Benchmarks](https://phantasm0009.github.io/accel-gpu/benchmark/)** — WebGPU vs WebGL vs CPU
 - **[Playground](https://phantasm0009.github.io/accel-gpu/playground/)** — Interactive code editor
 
-Run locally: `npx serve .` in the project root, then open `/`, `/example/`, `/benchmark/`, `/playground/`.
+Run locally: `npx serve .` then open `/`, `/example/`, `/benchmark/`, `/playground/`.
 
-## API
+## API Reference
 
 ### Initialize
 
 ```js
 const gpu = await init();
-const gpu = await init({ forceCPU: true }); // Force CPU for testing
+const gpu = await init({ forceCPU: true });   // Force CPU for testing
+const gpu = await init({ forceWebGL: true }); // Force WebGL2
 ```
 
 ### Create Arrays
@@ -105,18 +106,11 @@ const canvas = await gpu.toCanvas(arr, width, height);
 const data = await arr.toArray(); // Float32Array
 ```
 
-## Requirements
+## Fallback Chain
 
-- **WebGPU**: Chrome 113+, Edge 113+, Safari 18+
-- **CPU fallback**: Works everywhere (Node, headless, older browsers)
-
-## Deploy to GitHub Pages
-
-1. Run `npm run build` to generate `dist/`
-2. Commit and push `index.html`, `example/`, `benchmark/`, `playground/`, and `dist/`
-3. In repo Settings → Pages, choose "Deploy from a branch" and select your branch (root)
-
-Site will be live at `https://phantasm0009.github.io/accel-gpu/`
+1. **WebGPU** — Chrome 113+, Edge 113+ (best performance)
+2. **WebGL2** — Safari, Firefox, older Chrome (GPU-accelerated)
+3. **CPU** — Node, headless, or when no GPU available
 
 ## License
 

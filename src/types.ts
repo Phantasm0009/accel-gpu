@@ -3,14 +3,16 @@
  */
 
 import type { WebGPUBackend } from "./backend/webgpu";
+import type { WebGLBackend } from "./backend/webgl-backend";
 import type { CPUBackend } from "./backend/cpu-backend";
 import type { KernelRunner } from "./backend/kernel-runner";
+import type { WebGLRunner } from "./backend/webgl-runner";
 import type { CPURunner } from "./backend/cpu-runner";
 import type { GPUArray } from "./array";
 
 export interface AccelContext {
-  backend: WebGPUBackend | CPUBackend;
-  runner: KernelRunner | CPURunner;
+  backend: WebGPUBackend | WebGLBackend | CPUBackend;
+  runner: KernelRunner | WebGLRunner | CPURunner;
   /** Backend in use: 'webgpu' | 'webgl' | 'cpu' */
   backendType: "webgpu" | "webgl" | "cpu";
   array(data: Float32Array | number[], shape?: number[]): GPUArray;

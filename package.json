@@ -1,5 +1,5 @@
 {
-  "name": "@accel/gpu",
+  "name": "accel-gpu",
   "version": "0.2.0",
   "description": "NumPy for the browser GPU — zero shaders, zero dependencies",
   "type": "module",
@@ -36,6 +36,8 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
+    "build:site": "npm run build && node scripts/build-site.js",
+    "test": "npm run build && node scripts/test.mjs",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

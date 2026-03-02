@@ -3,19 +3,29 @@
  */
 
 import type { WebGPUBackend } from "./backend/webgpu";
+import type { WebGLBackend } from "./backend/webgl-backend";
 import type { CPUBackend } from "./backend/cpu-backend";
 import type { KernelRunner } from "./backend/kernel-runner";
+import type { WebGLRunner } from "./backend/webgl-runner";
 import type { CPURunner } from "./backend/cpu-runner";
 import { errLengthMismatch } from "./errors";
 
 const WORKGROUP_SIZE = 256;
 
-type Backend = WebGPUBackend | CPUBackend;
-type Runner = KernelRunner | CPURunner;
-type Buffer = GPUBuffer | { data: Float32Array };
+type Backend = WebGPUBackend | WebGLBackend | CPUBackend;
+type Runner = KernelRunner | WebGLRunner | CPURunner;
+type Buffer = GPUBuffer | import("./backend/webgl-backend").WebGLBuffer | { data: Float32Array };
 
 function isWebGPU(backend: Backend): backend is WebGPUBackend {
   return "device" in backend && backend.device !== undefined;
+}
+
+function isWebGL(backend: Backend): backend is WebGLBackend {
+  return "type" in backend && backend.type === "webgl";
+}
+
+function isCPU(backend: Backend): backend is CPUBackend {
+  return "type" in backend && backend.type === "cpu";
 }
 
 export class GPUArray {
@@ -60,13 +70,48 @@ export class GPUArray {
     const result = new Float32Array(this.length);
     if (isWebGPU(this.backend)) {
       await this.backend.readBuffer(this.buffer as GPUBuffer, result.buffer);
+    } else if (isWebGL(this.backend)) {
+      await this.backend.readBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer, result.buffer);
     } else {
       (this.backend as CPUBackend).readBuffer(this.buffer as { data: Float32Array }, result.buffer);
     }
     return result;
   }
 
+  private async addWebGL(other: GPUArray | number): Promise<GPUArray> {
+    const webglBackend = this.backend as WebGLBackend;
+    const webglRunner = this.runner as WebGLRunner;
+    const usage = 0;
+
+    if (typeof other === "number") {
+      const scalarData = new Float32Array(this.length).fill(other);
+      const scalarBuf = webglBackend.createBufferFromData(scalarData.buffer as ArrayBuffer, usage);
+      const out = webglBackend.createBuffer(this.byteLength, usage);
+      await webglRunner.add(this.buffer as import("./backend/webgl-backend").WebGLBuffer, scalarBuf, out, this.length);
+      webglBackend.destroyBuffer(scalarBuf);
+      webglBackend.destroyBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer);
+      this.buffer = out;
+      return this;
+    }
+    const out = webglBackend.createBuffer(this.byteLength, usage);
+    await webglRunner.add(
+      this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+      other.buffer as import("./backend/webgl-backend").WebGLBuffer,
+      out,
+      this.length
+    );
+    webglBackend.destroyBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer);
+    this.buffer = out;
+    return this;
+  }
+
   async add(other: GPUArray | number): Promise<GPUArray> {
+    if (typeof other !== "number" && other.length !== this.length) {
+      errLengthMismatch("add", this.length, other.length);
+    }
+
+    if (isWebGL(this.backend)) return this.addWebGL(other);
+
     if (typeof other === "number") {
       const scalarData = new Float32Array(this.length).fill(other);
       if (isWebGPU(this.backend)) {
@@ -85,13 +130,12 @@ export class GPUArray {
       } else {
         const cpuRunner = this.runner as CPURunner;
         const out = (this.backend as CPUBackend).createBuffer(this.byteLength);
-        cpuRunner.add(this.buffer as { data: Float32Array }, { data: scalarData }, out, this.length);
+        await cpuRunner.add(this.buffer as { data: Float32Array }, { data: scalarData }, out, this.length);
         (this.backend as CPUBackend).destroyBuffer(this.buffer as { data: Float32Array });
         this.buffer = out;
       }
       return this;
     }
-    if (other.length !== this.length) errLengthMismatch("add", this.length, other.length);
 
     if (isWebGPU(this.backend)) {
       const out = this.backend.createBuffer(
@@ -108,7 +152,7 @@ export class GPUArray {
       this.buffer = out;
     } else {
       const out = (this.backend as CPUBackend).createBuffer(this.byteLength);
-      (this.runner as CPURunner).add(
+      await (this.runner as CPURunner).add(
         this.buffer as { data: Float32Array },
         other.buffer as { data: Float32Array },
         out,
@@ -121,6 +165,30 @@ export class GPUArray {
   }
 
   async mul(other: GPUArray | number): Promise<GPUArray> {
+    if (typeof other !== "number" && other.length !== this.length) {
+      errLengthMismatch("mul", this.length, other.length);
+    }
+
+    if (isWebGL(this.backend)) {
+      const webglBackend = this.backend as WebGLBackend;
+      const webglRunner = this.runner as WebGLRunner;
+      const usage = 0;
+      const out = webglBackend.createBuffer(this.byteLength, usage);
+      if (typeof other === "number") {
+        await webglRunner.mulScalar(this.buffer as import("./backend/webgl-backend").WebGLBuffer, other, out, this.length);
+      } else {
+        await webglRunner.mul(
+          this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+          other.buffer as import("./backend/webgl-backend").WebGLBuffer,
+          out,
+          this.length
+        );
+      }
+      webglBackend.destroyBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer);
+      this.buffer = out;
+      return this;
+    }
+
     if (typeof other === "number") {
       if (isWebGPU(this.backend)) {
         const out = this.backend.createBuffer(
@@ -137,7 +205,7 @@ export class GPUArray {
         this.buffer = out;
       } else {
         const out = (this.backend as CPUBackend).createBuffer(this.byteLength);
-        (this.runner as CPURunner).mulScalar(
+        await (this.runner as CPURunner).mulScalar(
           this.buffer as { data: Float32Array },
           other,
           out,
@@ -148,7 +216,6 @@ export class GPUArray {
       }
       return this;
     }
-    if (other.length !== this.length) errLengthMismatch("mul", this.length, other.length);
 
     if (isWebGPU(this.backend)) {
       const out = this.backend.createBuffer(
@@ -165,7 +232,7 @@ export class GPUArray {
       this.buffer = out;
     } else {
       const out = (this.backend as CPUBackend).createBuffer(this.byteLength);
-      (this.runner as CPURunner).mul(
+      await (this.runner as CPURunner).mul(
         this.buffer as { data: Float32Array },
         other.buffer as { data: Float32Array },
         out,
@@ -183,9 +250,26 @@ export class GPUArray {
       const result = new Float32Array(1);
       if (isWebGPU(this.backend)) {
         await this.backend.readBuffer(this.buffer as GPUBuffer, result.buffer);
+      } else if (isWebGL(this.backend)) {
+        await this.backend.readBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer, result.buffer);
       } else {
         (this.backend as CPUBackend).readBuffer(this.buffer as { data: Float32Array }, result.buffer);
       }
+      return result[0];
+    }
+
+    if (isWebGL(this.backend)) {
+      const webglBackend = this.backend as WebGLBackend;
+      const webglRunner = this.runner as WebGLRunner;
+      const out = webglBackend.createBuffer(4, 0);
+      await webglRunner.reduceSum(
+        this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+        out,
+        this.length
+      );
+      const result = new Float32Array(1);
+      await webglBackend.readBuffer(out, result.buffer);
+      webglBackend.destroyBuffer(out);
       return result[0];
     }
 
@@ -211,7 +295,7 @@ export class GPUArray {
       }
     } else {
       const out = (this.backend as CPUBackend).createBuffer(4);
-      (this.runner as CPURunner).reduceSum(
+      await (this.runner as CPURunner).reduceSum(
         this.buffer as { data: Float32Array },
         out,
         this.length
@@ -226,9 +310,26 @@ export class GPUArray {
       const result = new Float32Array(1);
       if (isWebGPU(this.backend)) {
         await this.backend.readBuffer(this.buffer as GPUBuffer, result.buffer);
+      } else if (isWebGL(this.backend)) {
+        await this.backend.readBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer, result.buffer);
       } else {
         (this.backend as CPUBackend).readBuffer(this.buffer as { data: Float32Array }, result.buffer);
       }
+      return result[0];
+    }
+
+    if (isWebGL(this.backend)) {
+      const webglBackend = this.backend as WebGLBackend;
+      const webglRunner = this.runner as WebGLRunner;
+      const out = webglBackend.createBuffer(4, 0);
+      await webglRunner.reduceMax(
+        this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+        out,
+        this.length
+      );
+      const result = new Float32Array(1);
+      await webglBackend.readBuffer(out, result.buffer);
+      webglBackend.destroyBuffer(out);
       return result[0];
     }
 
@@ -254,7 +355,7 @@ export class GPUArray {
       }
     } else {
       const out = (this.backend as CPUBackend).createBuffer(4);
-      (this.runner as CPURunner).reduceMax(
+      await (this.runner as CPURunner).reduceMax(
         this.buffer as { data: Float32Array },
         out,
         this.length
@@ -265,6 +366,23 @@ export class GPUArray {
 
   async dot(other: GPUArray): Promise<number> {
     if (other.length !== this.length) errLengthMismatch("dot", this.length, other.length);
+
+    if (isWebGL(this.backend)) {
+      const webglBackend = this.backend as WebGLBackend;
+      const webglRunner = this.runner as WebGLRunner;
+      const multiplied = webglBackend.createBuffer(this.byteLength, 0);
+      await webglRunner.mul(
+        this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+        other.buffer as import("./backend/webgl-backend").WebGLBuffer,
+        multiplied,
+        this.length
+      );
+      const temp = new GPUArray(this.backend, this.runner, multiplied, this.length);
+      const result = await temp.sum();
+      webglBackend.destroyBuffer(multiplied);
+      return result;
+    }
+
     if (isWebGPU(this.backend)) {
       const multiplied = this.backend.device!.createBuffer({
         size: this.byteLength,
@@ -276,12 +394,7 @@ export class GPUArray {
         multiplied,
         this.length
       );
-      const temp = new GPUArray(
-        this.backend,
-        this.runner,
-        multiplied,
-        this.length
-      );
+      const temp = new GPUArray(this.backend, this.runner, multiplied, this.length);
       const result = await temp.sum();
       this.backend.destroyBuffer(multiplied);
       return result;
@@ -294,7 +407,7 @@ export class GPUArray {
     }
   }
 
-  getBuffer(): GPUBuffer | { data: Float32Array } {
+  getBuffer(): GPUBuffer | import("./backend/webgl-backend").WebGLBuffer | { data: Float32Array } {
     return this.buffer;
   }
 }

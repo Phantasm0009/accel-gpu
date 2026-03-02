@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@accel/gpu — NumPy for the browser GPU</title>
+  <title>accel-gpu — NumPy for the browser GPU</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #24292f; line-height: 1.6; }
@@ -22,11 +22,12 @@
     .links { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #d0d7de; }
     .links a { color: #0969da; text-decoration: none; }
     .links a:hover { text-decoration: underline; }
+    ul { color: #57606a; margin: 0.5rem 0; padding-left: 1.5rem; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>@accel/gpu</h1>
+    <h1>accel-gpu</h1>
     <p class="tagline">NumPy for the browser GPU — zero shaders, zero dependencies.</p>
 
     <div class="nav">
@@ -37,10 +38,10 @@
     </div>
 
     <h2>Install</h2>
-    <pre><code>npm install @accel/gpu</code></pre>
+    <pre><code>npm install accel-gpu</code></pre>
 
     <h2>Quick Start</h2>
-    <pre><code>import { init, matmul, softmax } from "@accel/gpu";
+    <pre><code>import { init, matmul, softmax } from "accel-gpu";
 
 const gpu = await init();
 const a = gpu.array([1, 2, 3, 4]);
@@ -65,12 +66,17 @@ console.log(await x.toArray());</code></pre>
 const normed = await layerNorm(gpu, x, gamma, beta);
 const scores = await attentionScores(gpu, Q, K);</code></pre>
 
-    <h2>Fallbacks</h2>
-    <p>Uses WebGPU when available, otherwise CPU. Works in Node, headless, and older browsers.</p>
+    <h2>Fallback Chain</h2>
+    <p>WebGPU → WebGL2 → CPU. Works in Safari, Firefox, Node, headless, and older browsers.</p>
+    <ul>
+      <li><strong>WebGPU</strong> — Chrome 113+, Edge 113+</li>
+      <li><strong>WebGL2</strong> — Safari, Firefox, older Chrome</li>
+      <li><strong>CPU</strong> — Node, headless, no GPU</li>
+    </ul>
 
     <div class="links">
       <a href="https://github.com/Phantasm0009/accel-gpu">Repository</a> ·
-      <a href="https://www.npmjs.com/package/@accel/gpu">npm</a>
+      <a href="https://www.npmjs.com/package/accel-gpu">npm</a>
     </div>
   </div>
 </body>

@@ -1,27 +1,32 @@
 # Changelog
 
-All notable changes to @accel/gpu will be documented in this file.
+All notable changes to accel-gpu will be documented in this file.
 
-## [0.2.0] - Unreleased
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [0.2.0] - 2025-03-01
 
 ### Added
 
+- **WebGL2 fallback** — Full WebGL2 backend when WebGPU unavailable (Safari, Firefox, older Chrome)
 - **Shape inference** — `matmul(gpu, A, B)` infers M, N, K from array shapes
-- **Method chaining** — `a.add(b).mul(2).sum()` returns `this` for chaining
+- **Method chaining** — `a.add(b).mul(2)` returns `this` for chaining (await each step)
 - **reshape()** — Reshape arrays with shape metadata
-- **CPU fallback** — Automatic fallback when WebGPU unavailable (Node, headless)
+- **CPU fallback** — Automatic fallback when WebGPU/WebGL unavailable (Node, headless)
 - **Buffer pooling** — Reuse GPUBuffers for better performance
 - **fromImageData() / toCanvas()** — Canvas integration for image processing
 - **layerNorm** — Layer normalization kernel for transformers
 - **attentionScores** — Q @ K^T / sqrt(dim) for attention
 - **Clear error messages** — Descriptive errors with shape info
-- **Benchmark page** — Compare GPU vs CPU performance
+- **Benchmark page** — Compare WebGPU vs WebGL vs CPU performance
 - **Playground** — Interactive code editor
 - **forceCPU** init option — Force CPU backend for testing
+- **forceWebGL** init option — Force WebGL2 backend for testing
 
 ### Changed
 
-- `init()` now uses WebGPU with automatic CPU fallback
+- Package renamed from `@accel/gpu` to `accel-gpu`
+- `init()` now uses WebGPU → WebGL2 → CPU fallback chain
 - `matmul`, `softmax`, `transpose` support shape inference from array metadata
 
 ## [0.1.0] - Initial Release

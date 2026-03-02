@@ -21,37 +21,46 @@
   <p>Compare GPU (WebGPU) vs CPU performance. Run with WebGPU enabled for GPU results.</p>
   <div id="status">Initializing...</div>
   <button id="run">Run Benchmarks</button>
+  <button id="runWebGL">Run with WebGL</button>
   <table>
     <thead>
-      <tr><th>Operation</th><th>Size</th><th>GPU (ms)</th><th>CPU (ms)</th><th>Speedup</th></tr>
+      <tr><th>Operation</th><th>Size</th><th>WebGPU (ms)</th><th>WebGL (ms)</th><th>CPU (ms)</th><th>Speedup</th></tr>
     </thead>
     <tbody id="results"></tbody>
   </table>
 
   <script type="module">
-    import { init, matmul, softmax } from "../dist/index.js";
+    import { init, matmul } from "../dist/index.js";
 
     const status = document.getElementById("status");
     const results = document.getElementById("results");
     const runBtn = document.getElementById("run");
+    const runWebGLBtn = document.getElementById("runWebGL");
 
     let gpuCtx = null;
     let cpuCtx = null;
+    let webglCtx = null;
 
     async function setup() {
       try {
         gpuCtx = await init();
         cpuCtx = await init({ forceCPU: true });
+        try {
+          webglCtx = await init({ forceWebGL: true });
+        } catch {
+          webglCtx = null;
+        }
         status.textContent = `Backend: ${gpuCtx.backendType}. Ready to benchmark.`;
       } catch (e) {
         status.textContent = "Error: " + e.message;
       }
     }
 
-    function addRow(op, size, gpuMs, cpuMs) {
-      const speedup = gpuMs > 0 ? (cpuMs / gpuMs).toFixed(2) : "-";
+    function addRow(op, size, webgpuMs, webglMs, cpuMs) {
+      const best = Math.min(webgpuMs, webglMs ?? Infinity, cpuMs);
+      const speedup = best > 0 ? (cpuMs / best).toFixed(2) : "-";
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${op}</td><td>${size}</td><td>${gpuMs.toFixed(2)}</td><td>${cpuMs.toFixed(2)}</td><td class="${gpuMs < cpuMs ? "fast" : "slow"}">${speedup}x</td>`;
+      tr.innerHTML = `<td>${op}</td><td>${size}</td><td>${webgpuMs.toFixed(2)}</td><td>${webglMs != null ? webglMs.toFixed(2) : "-"}</td><td>${cpuMs.toFixed(2)}</td><td class="${best < cpuMs ? "fast" : "slow"}">${speedup}x</td>`;
       results.appendChild(tr);
     }
 
@@ -77,6 +86,16 @@
         await a.sum();
         const gpuEnd = performance.now();
 
+        let webglMs = null;
+        if (webglCtx) {
+          const a3 = webglCtx.array(data);
+          const b3 = webglCtx.array(data);
+          const wStart = performance.now();
+          await a3.add(b3);
+          await a3.sum();
+          webglMs = performance.now() - wStart;
+        }
+
         const a2 = cpuCtx.array(data);
         const b2 = cpuCtx.array(data);
         const cpuStart = performance.now();
@@ -84,7 +103,7 @@
         await a2.sum();
         const cpuEnd = performance.now();
 
-        addRow("add + sum", label, gpuEnd - gpuStart, cpuEnd - cpuStart);
+        addRow("add + sum", label, gpuEnd - gpuStart, webglMs, cpuEnd - cpuStart);
       }
 
       const matmulSizes = [[64, "64×64"], [128, "128×128"], [256, "256×256"]];
@@ -96,13 +115,22 @@
         await matmul(gpuCtx, A, B);
         const gpuEnd = performance.now();
 
+        let webglMs = null;
+        if (webglCtx) {
+          const A3 = webglCtx.array(new Float32Array(n * n).fill(0.01), [n, n]);
+          const B3 = webglCtx.array(new Float32Array(n * n).fill(0.01), [n, n]);
+          const wStart = performance.now();
+          await matmul(webglCtx, A3, B3);
+          webglMs = performance.now() - wStart;
+        }
+
         const A2 = cpuCtx.array(new Float32Array(n * n).fill(0.01), [n, n]);
         const B2 = cpuCtx.array(new Float32Array(n * n).fill(0.01), [n, n]);
         const cpuStart = performance.now();
         await matmul(cpuCtx, A2, B2);
         const cpuEnd = performance.now();
 
-        addRow("matmul", label, gpuEnd - gpuStart, cpuEnd - cpuStart);
+        addRow("matmul", label, gpuEnd - gpuStart, webglMs, cpuEnd - cpuStart);
       }
 
       status.textContent = "Benchmarks complete.";
