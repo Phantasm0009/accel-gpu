@@ -1,5 +1,5 @@
 /**
- * Clear, descriptive error messages
+ * Clear, descriptive error messages. Stack traces are included automatically when thrown.
  */
 
 export function errLengthMismatch(op: string, a: number, b: number): never {

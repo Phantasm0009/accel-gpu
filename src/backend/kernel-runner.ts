@@ -7,8 +7,28 @@ import {
   ADD_SHADER,
   MUL_SHADER,
   MUL_SCALAR_SHADER,
+  SUB_SHADER,
+  SUB_SCALAR_SHADER,
+  DIV_SHADER,
+  DIV_SCALAR_SHADER,
+  POW_SCALAR_SHADER,
+  SQRT_SHADER,
+  ABS_SHADER,
+  NEG_SHADER,
+  EXP_SHADER,
+  LOG_SHADER,
+  RELU_SHADER,
+  SIGMOID_SHADER,
+  TANH_SHADER,
+  CLAMP_SHADER,
+  GELU_SHADER,
+  LEAKY_RELU_SHADER,
+  EQUAL_SHADER,
+  GREATER_SHADER,
+  LESS_SHADER,
   REDUCE_SUM_SHADER,
   REDUCE_MAX_SHADER,
+  REDUCE_MIN_SHADER,
   MATMUL_SHADER,
   SOFTMAX_SHADER,
   LAYER_NORM_SHADER,
@@ -82,6 +102,289 @@ export class KernelRunner {
     uniformBuffer.destroy();
   }
 
+  async sub(a: GPUBuffer, b: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("sub", SUB_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: b } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async subScalar(a: GPUBuffer, scalar: number, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("sub_scalar", SUB_SCALAR_SHADER);
+    const uniformBuffer = this.backend.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(uniformBuffer, 0, new Float32Array([scalar]).buffer);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: uniformBuffer } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+    uniformBuffer.destroy();
+  }
+
+  async div(a: GPUBuffer, b: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("div", DIV_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: b } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async divScalar(a: GPUBuffer, scalar: number, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("div_scalar", DIV_SCALAR_SHADER);
+    const uniformBuffer = this.backend.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(uniformBuffer, 0, new Float32Array([scalar]).buffer);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: uniformBuffer } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+    uniformBuffer.destroy();
+  }
+
+  async powScalar(a: GPUBuffer, exponent: number, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("pow_scalar", POW_SCALAR_SHADER);
+    const uniformBuffer = this.backend.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(uniformBuffer, 0, new Float32Array([exponent]).buffer);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: uniformBuffer } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+    uniformBuffer.destroy();
+  }
+
+  async sqrt(a: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("sqrt", SQRT_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async abs(a: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("abs", ABS_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async neg(a: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("neg", NEG_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async exp(a: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("exp", EXP_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async log(a: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("log", LOG_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async relu(a: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("relu", RELU_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async sigmoid(a: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("sigmoid", SIGMOID_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async tanh(a: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("tanh", TANH_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async clamp(
+    a: GPUBuffer,
+    minVal: number,
+    maxVal: number,
+    out: GPUBuffer,
+    length: number
+  ): Promise<void> {
+    const pipeline = await this.getPipeline("clamp", CLAMP_SHADER);
+    const uniformBuffer = this.backend.device.createBuffer({
+      size: 8,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(
+      uniformBuffer,
+      0,
+      new Float32Array([minVal, maxVal]).buffer
+    );
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: uniformBuffer } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+    uniformBuffer.destroy();
+  }
+
+  async gelu(a: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("gelu", GELU_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async leakyRelu(
+    a: GPUBuffer,
+    alpha: number,
+    out: GPUBuffer,
+    length: number
+  ): Promise<void> {
+    const pipeline = await this.getPipeline("leaky_relu", LEAKY_RELU_SHADER);
+    const uniformBuffer = this.backend.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(uniformBuffer, 0, new Float32Array([alpha]).buffer);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: uniformBuffer } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+    uniformBuffer.destroy();
+  }
+
+  async equal(a: GPUBuffer, b: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("equal", EQUAL_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: b } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async greater(a: GPUBuffer, b: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("greater", GREATER_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: b } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
+  async less(a: GPUBuffer, b: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("less", LESS_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: a } },
+        { binding: 1, resource: { buffer: b } },
+        { binding: 2, resource: { buffer: out } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(length / WORKGROUP_SIZE)]);
+  }
+
   async reduceSum(input: GPUBuffer, output: GPUBuffer, length: number): Promise<void> {
     const pipeline = await this.getPipeline("reduce_sum", REDUCE_SUM_SHADER);
     const workgroups = Math.ceil(length / WORKGROUP_SIZE);
@@ -97,6 +400,19 @@ export class KernelRunner {
 
   async reduceMax(input: GPUBuffer, output: GPUBuffer, length: number): Promise<void> {
     const pipeline = await this.getPipeline("reduce_max", REDUCE_MAX_SHADER);
+    const workgroups = Math.ceil(length / WORKGROUP_SIZE);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: input } },
+        { binding: 1, resource: { buffer: output } },
+      ],
+    });
+    this.backend.runPipeline(pipeline, [bindGroup], [workgroups]);
+  }
+
+  async reduceMin(input: GPUBuffer, output: GPUBuffer, length: number): Promise<void> {
+    const pipeline = await this.getPipeline("reduce_min", REDUCE_MIN_SHADER);
     const workgroups = Math.ceil(length / WORKGROUP_SIZE);
     const bindGroup = this.backend.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),

@@ -150,9 +150,13 @@
 
     <nav class="nav">
       <a href="example/" class="primary">Demo</a>
+      <a href="example/image/">Image</a>
+      <a href="example/heatmap/">Heatmap</a>
+      <a href="example/nn/">Neural Net</a>
+      <a href="example/nbody/">N-Body</a>
       <a href="benchmark/">Benchmarks</a>
       <a href="playground/">Playground</a>
-      <a href="https://github.com/Phantasm0009/accel-gpu#readme" target="_blank" rel="noopener">API Reference</a>
+      <a href="https://github.com/Phantasm0009/accel-gpu#readme" target="_blank" rel="noopener">API</a>
       <a href="https://github.com/Phantasm0009/accel-gpu" target="_blank" rel="noopener">GitHub</a>
       <a href="https://www.npmjs.com/package/accel-gpu" target="_blank" rel="noopener">npm</a>
     </nav>
@@ -163,7 +167,8 @@
     <h2>Initialize</h2>
     <pre><code>const gpu = await init();
 const gpu = await init({ forceCPU: true });   // Force CPU for testing
-const gpu = await init({ forceWebGL: true }); // Force WebGL2</code></pre>
+const gpu = await init({ forceWebGL: true }); // WebGL2
+const gpu = await init({ profiling: true });  // Enable profiling</code></pre>
 
     <h2>Quick Start</h2>
     <pre><code>import { init, matmul, softmax } from "accel-gpu";
@@ -186,7 +191,15 @@ console.log(await a.toArray()); // [6, 8, 10, 12]</code></pre>
       </div>
       <div class="card">
         <h3>ML primitives</h3>
-        <p>softmax, layerNorm, attentionScores</p>
+        <p>softmax, layerNorm, batchNorm, attentionScores</p>
+      </div>
+      <div class="card">
+        <h3>FFT & signal</h3>
+        <p>fft, ifft, spectrogram</p>
+      </div>
+      <div class="card">
+        <h3>Conv & pool</h3>
+        <p>conv2d, maxPool2d, avgPool2d</p>
       </div>
       <div class="card">
         <h3>Universal</h3>
@@ -208,7 +221,13 @@ console.log(await x.toArray()); // [4, 6, 8, 10]</code></pre>
     <h2>ML primitives</h2>
     <pre><code>const probs = await softmax(gpu, logits);
 const normed = await layerNorm(gpu, x, gamma, beta);
-const scores = await attentionScores(gpu, Q, K);</code></pre>
+const scores = await attentionScores(gpu, Q, K);
+const spec = await spectrogram(gpu, signal, 256, 128);</code></pre>
+
+    <h2>Matrix ops</h2>
+    <pre><code>const invA = await inv(gpu, A);
+const d = await det(gpu, A);
+const x = await solve(gpu, A, b);</code></pre>
 
     <h2>Fallback chain</h2>
     <ul>

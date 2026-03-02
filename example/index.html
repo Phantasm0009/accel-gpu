@@ -50,7 +50,7 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="back"><a href="../">← accel-gpu</a></div>
+    <div class="back"><a href="../">← accel-gpu</a> · <a href="image/">Image</a> · <a href="heatmap/">Heatmap</a> · <a href="nn/">NN</a> · <a href="nbody/">N-Body</a></div>
     <h1>Demo</h1>
     <p class="status">Running examples…</p>
     <pre id="output" class="output">Loading...</pre>
@@ -116,6 +116,28 @@
         const beta = gpu.array(new Float32Array([0, 0, 0]));
         const lnOut = await layerNorm(gpu, lnInput, gamma, beta, 2, 3);
         lines.push(`LayerNorm (2×3) = [${(await lnOut.toArray()).map(x => x.toFixed(3)).join(", ")}]`);
+
+        // New ops: sub, div, sqrt, relu, min, mean
+        const s = gpu.array(new Float32Array([10, 20, 30]));
+        await s.sub(5);
+        lines.push(`Sub: [10,20,30] - 5 = [${Array.from(await s.toArray()).join(", ")}]`);
+        const d = gpu.array(new Float32Array([4, 8, 12]));
+        await d.div(2);
+        lines.push(`Div: [4,8,12] / 2 = [${Array.from(await d.toArray()).join(", ")}]`);
+        const sq = gpu.array(new Float32Array([4, 9, 16]));
+        await sq.sqrt();
+        lines.push(`Sqrt: [4,9,16] = [${Array.from(await sq.toArray()).join(", ")}]`);
+        const rl = gpu.array(new Float32Array([-1, 2, -3, 4]));
+        await rl.relu();
+        lines.push(`ReLU: [-1,2,-3,4] = [${Array.from(await rl.toArray()).join(", ")}]`);
+        const minVal = await gpu.array(new Float32Array([5, 2, 8, 1])).min();
+        lines.push(`Min: [5,2,8,1] = ${minVal}`);
+        const meanVal = await gpu.array(new Float32Array([2, 4, 6])).mean();
+        lines.push(`Mean: [2,4,6] = ${meanVal}`);
+        const z = gpu.zeros([3]);
+        lines.push(`Zeros: [${Array.from(await z.toArray()).join(", ")}]`);
+        const ar = gpu.arange(0, 5);
+        lines.push(`Arange(0,5): [${Array.from(await ar.toArray()).join(", ")}]`);
 
         lines.push("");
         lines.push("All examples passed ✓");

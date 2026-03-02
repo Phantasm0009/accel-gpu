@@ -88,6 +88,58 @@ export async function layerNorm(
 }
 
 /**
+ * Batch normalization: (x - mean) / sqrt(var + eps) * gamma + beta
+ * Normalizes over the first dimension (batch). Input [N, C, ...], gamma and beta [C].
+ */
+export async function batchNorm(
+  ctx: AccelContext,
+  input: GPUArray,
+  gamma: GPUArray,
+  beta: GPUArray,
+  eps = 1e-5,
+  rows?: number,
+  cols?: number
+): Promise<GPUArray> {
+  let r: number, c: number;
+  if (rows !== undefined && cols !== undefined) {
+    r = rows;
+    c = cols;
+  } else if (input.shape.length === 2) {
+    [r, c] = input.shape;
+  } else {
+    throw new Error("batchNorm: provide rows and cols, or use 2D array [N, C]");
+  }
+  if (gamma.length !== c || beta.length !== c) {
+    throw new Error(`batchNorm: gamma and beta must have length ${c}`);
+  }
+  const data = await input.toArray();
+  const gData = await gamma.toArray();
+  const bData = await beta.toArray();
+  const mean = new Float32Array(c);
+  const varSum = new Float32Array(c);
+  for (let i = 0; i < r; i++) {
+    for (let j = 0; j < c; j++) mean[j] += data[i * c + j];
+  }
+  for (let j = 0; j < c; j++) mean[j] /= r;
+  for (let i = 0; i < r; i++) {
+    for (let j = 0; j < c; j++) {
+      const d = data[i * c + j] - mean[j];
+      varSum[j] += d * d;
+    }
+  }
+  const out = new Float32Array(r * c);
+  for (let i = 0; i < r; i++) {
+    for (let j = 0; j < c; j++) {
+      const std = Math.sqrt(varSum[j] / r + eps);
+      out[i * c + j] = ((data[i * c + j] - mean[j]) / std) * gData[j] + bData[j];
+    }
+  }
+  const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
+  const buffer = ctx.backend.createBufferFromData(out.buffer as ArrayBuffer, usage);
+  return new (await import("../array")).GPUArray(ctx.backend, ctx.runner, buffer, r * c, [r, c]);
+}
+
+/**
  * Attention scores: Q @ K^T / sqrt(dim). Output shape [seq, seq].
  */
 export async function attentionScores(

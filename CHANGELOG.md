@@ -4,6 +4,23 @@ All notable changes to accel-gpu will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.6] - 2025-03-01
+
+### Added
+
+- **Reductions** — `variance()`, `std()`, `argmax()`, `argmin()`
+- **Axis-specific reductions** — `sum(axis?)`, `mean(axis?)`, `max(axis?)`
+- **Activations** — `gelu()`, `leakyRelu(alpha)`
+- **Comparison** — `equal()`, `greater()`, `less()`, `clamp(min, max)`
+- **Slicing** — `slice()`, `get()`, `set()`, `concat()`, `split()`
+- **Shape** — `flatten()`, `squeeze()`, `unsqueeze()`, `broadcast()`
+- **Memory** — `dispose()`, `isDisposed`, `toArraySync()` (CPU only)
+- **Matrix ops** — `inv()`, `det()`, `solve()`, `qr()`, `svd()` (CPU)
+- **ML** — `maxPool2d`, `avgPool2d`, `conv2d`, `batchNorm`, `normalize()`
+- **FFT & signal** — `fft()`, `ifft()`, `fftMagnitude()`, `spectrogram()`
+- **Other** — `norm()`, `outer()`, `mse()`, `crossEntropy()`
+- **Profiling** — `enableProfiling()`, `recordOp()`, `getProfilingResults()`, `init({ profiling: true })`
+
 ## [0.2.5] - 2025-03-01
 
 ### Added

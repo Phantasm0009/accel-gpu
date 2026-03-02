@@ -8,8 +8,28 @@ import {
   ADD_FRAGMENT,
   MUL_FRAGMENT,
   MUL_SCALAR_FRAGMENT,
+  SUB_FRAGMENT,
+  SUB_SCALAR_FRAGMENT,
+  DIV_FRAGMENT,
+  DIV_SCALAR_FRAGMENT,
+  POW_SCALAR_FRAGMENT,
+  SQRT_FRAGMENT,
+  ABS_FRAGMENT,
+  NEG_FRAGMENT,
+  EXP_FRAGMENT,
+  LOG_FRAGMENT,
+  RELU_FRAGMENT,
+  SIGMOID_FRAGMENT,
+  TANH_FRAGMENT,
+  CLAMP_FRAGMENT,
+  GELU_FRAGMENT,
+  LEAKY_RELU_FRAGMENT,
+  EQUAL_FRAGMENT,
+  GREATER_FRAGMENT,
+  LESS_FRAGMENT,
   REDUCE_SUM_FRAGMENT,
   REDUCE_MAX_FRAGMENT,
+  REDUCE_MIN_FRAGMENT,
   MATMUL_FRAGMENT,
   SOFTMAX_FRAGMENT,
   LAYER_NORM_FRAGMENT,
@@ -142,6 +162,206 @@ export class WebGLRunner {
     });
   }
 
+  async sub(a: WebGLBuffer, b: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    const prog = this.getProgram("sub", SUB_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, b.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_b"), 1);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
+  async subScalar(a: WebGLBuffer, scalar: number, out: WebGLBuffer, length: number): Promise<void> {
+    const prog = this.getProgram("sub_scalar", SUB_SCALAR_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.uniform1f(gl.getUniformLocation(p, "u_scalar"), scalar);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
+  async div(a: WebGLBuffer, b: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    const prog = this.getProgram("div", DIV_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, b.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_b"), 1);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
+  async divScalar(a: WebGLBuffer, scalar: number, out: WebGLBuffer, length: number): Promise<void> {
+    const prog = this.getProgram("div_scalar", DIV_SCALAR_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.uniform1f(gl.getUniformLocation(p, "u_scalar"), scalar);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
+  async powScalar(
+    a: WebGLBuffer,
+    exponent: number,
+    out: WebGLBuffer,
+    length: number
+  ): Promise<void> {
+    const prog = this.getProgram("pow_scalar", POW_SCALAR_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.uniform1f(gl.getUniformLocation(p, "u_exponent"), exponent);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
+  private async unaryOp(
+    name: string,
+    fragment: string,
+    a: WebGLBuffer,
+    out: WebGLBuffer,
+    length: number
+  ): Promise<void> {
+    const prog = this.getProgram(name, fragment);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
+  async sqrt(a: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    return this.unaryOp("sqrt", SQRT_FRAGMENT, a, out, length);
+  }
+  async abs(a: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    return this.unaryOp("abs", ABS_FRAGMENT, a, out, length);
+  }
+  async neg(a: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    return this.unaryOp("neg", NEG_FRAGMENT, a, out, length);
+  }
+  async exp(a: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    return this.unaryOp("exp", EXP_FRAGMENT, a, out, length);
+  }
+  async log(a: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    return this.unaryOp("log", LOG_FRAGMENT, a, out, length);
+  }
+  async relu(a: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    return this.unaryOp("relu", RELU_FRAGMENT, a, out, length);
+  }
+  async sigmoid(a: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    return this.unaryOp("sigmoid", SIGMOID_FRAGMENT, a, out, length);
+  }
+  async tanh(a: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    return this.unaryOp("tanh", TANH_FRAGMENT, a, out, length);
+  }
+  async gelu(a: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    return this.unaryOp("gelu", GELU_FRAGMENT, a, out, length);
+  }
+  async clamp(
+    a: WebGLBuffer,
+    minVal: number,
+    maxVal: number,
+    out: WebGLBuffer,
+    length: number
+  ): Promise<void> {
+    const prog = this.getProgram("clamp", CLAMP_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.uniform2f(gl.getUniformLocation(p, "u_params"), minVal, maxVal);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+  async leakyRelu(
+    a: WebGLBuffer,
+    alpha: number,
+    out: WebGLBuffer,
+    length: number
+  ): Promise<void> {
+    const prog = this.getProgram("leaky_relu", LEAKY_RELU_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.uniform1f(gl.getUniformLocation(p, "u_alpha"), alpha);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
+  async equal(a: WebGLBuffer, b: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    const prog = this.getProgram("equal", EQUAL_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, b.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_b"), 1);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
+  async greater(a: WebGLBuffer, b: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    const prog = this.getProgram("greater", GREATER_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, b.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_b"), 1);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
+  async less(a: WebGLBuffer, b: WebGLBuffer, out: WebGLBuffer, length: number): Promise<void> {
+    const prog = this.getProgram("less", LESS_FRAGMENT);
+    runFragmentShader(this.gl, prog, out, (gl, p) => {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, a.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_a"), 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, b.texture);
+      gl.uniform1i(gl.getUniformLocation(p, "u_b"), 1);
+      gl.uniform2f(gl.getUniformLocation(p, "u_texSize"), a.width, a.height);
+      gl.uniform1f(gl.getUniformLocation(p, "u_length"), length);
+      this.renderQuad();
+    });
+  }
+
   async reduceSum(input: WebGLBuffer, output: WebGLBuffer, length: number): Promise<void> {
     let current = input;
     let currentLen = length;
@@ -180,6 +400,35 @@ export class WebGLRunner {
       const outLen = Math.ceil(currentLen / 2);
       const outBuf = this.backend.createBuffer(Math.max(4, outLen * 4), usage);
       const prog = this.getProgram("reduce_max", REDUCE_MAX_FRAGMENT);
+      runFragmentShader(this.gl, prog, outBuf, (gl, p) => {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, current.texture);
+        gl.uniform1i(gl.getUniformLocation(p, "u_input"), 0);
+        gl.uniform2f(gl.getUniformLocation(p, "u_inputTexSize"), current.width, current.height);
+        gl.uniform2f(gl.getUniformLocation(p, "u_outputTexSize"), outBuf.width, outBuf.height);
+        gl.uniform1f(gl.getUniformLocation(p, "u_length"), currentLen);
+        this.renderQuad();
+      });
+      if (current !== input) this.backend.destroyBuffer(current);
+      current = outBuf;
+      currentLen = outLen;
+    }
+
+    const data = new ArrayBuffer(4);
+    await this.backend.readBuffer(current, data);
+    if (current !== input) this.backend.destroyBuffer(current);
+    this.backend.writeBuffer(output, data);
+  }
+
+  async reduceMin(input: WebGLBuffer, output: WebGLBuffer, length: number): Promise<void> {
+    let current = input;
+    let currentLen = length;
+    const usage = 0;
+
+    while (currentLen > 1) {
+      const outLen = Math.ceil(currentLen / 2);
+      const outBuf = this.backend.createBuffer(Math.max(4, outLen * 4), usage);
+      const prog = this.getProgram("reduce_min", REDUCE_MIN_FRAGMENT);
       runFragmentShader(this.gl, prog, outBuf, (gl, p) => {
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, current.texture);

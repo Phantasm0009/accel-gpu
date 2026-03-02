@@ -89,6 +89,196 @@ void main() {
 }
 `;
 
+const UNARY_FRAGMENT = (op: string) => `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_a;
+uniform vec2 u_texSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
+  if (idx >= u_length) {
+    fragColor = packFloat(0.0);
+    return;
+  }
+  float aVal = unpackFloat(texelFetch(u_a, ivec2(gl_FragCoord.xy), 0));
+  fragColor = packFloat(${op});
+}
+`;
+
+export const SUB_FRAGMENT = `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_a;
+uniform sampler2D u_b;
+uniform vec2 u_texSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
+  if (idx >= u_length) {
+    fragColor = packFloat(0.0);
+    return;
+  }
+  float aVal = unpackFloat(texelFetch(u_a, ivec2(gl_FragCoord.xy), 0));
+  float bVal = unpackFloat(texelFetch(u_b, ivec2(gl_FragCoord.xy), 0));
+  fragColor = packFloat(aVal - bVal);
+}
+`;
+
+export const SUB_SCALAR_FRAGMENT = `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_a;
+uniform float u_scalar;
+uniform vec2 u_texSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
+  if (idx >= u_length) {
+    fragColor = packFloat(0.0);
+    return;
+  }
+  float aVal = unpackFloat(texelFetch(u_a, ivec2(gl_FragCoord.xy), 0));
+  fragColor = packFloat(aVal - u_scalar);
+}
+`;
+
+export const DIV_FRAGMENT = `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_a;
+uniform sampler2D u_b;
+uniform vec2 u_texSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
+  if (idx >= u_length) {
+    fragColor = packFloat(0.0);
+    return;
+  }
+  float aVal = unpackFloat(texelFetch(u_a, ivec2(gl_FragCoord.xy), 0));
+  float bVal = unpackFloat(texelFetch(u_b, ivec2(gl_FragCoord.xy), 0));
+  fragColor = packFloat(bVal != 0.0 ? aVal / bVal : 0.0);
+}
+`;
+
+export const DIV_SCALAR_FRAGMENT = `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_a;
+uniform float u_scalar;
+uniform vec2 u_texSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
+  if (idx >= u_length) {
+    fragColor = packFloat(0.0);
+    return;
+  }
+  float aVal = unpackFloat(texelFetch(u_a, ivec2(gl_FragCoord.xy), 0));
+  fragColor = packFloat(u_scalar != 0.0 ? aVal / u_scalar : 0.0);
+}
+`;
+
+export const POW_SCALAR_FRAGMENT = `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_a;
+uniform float u_exponent;
+uniform vec2 u_texSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
+  if (idx >= u_length) {
+    fragColor = packFloat(0.0);
+    return;
+  }
+  float aVal = unpackFloat(texelFetch(u_a, ivec2(gl_FragCoord.xy), 0));
+  fragColor = packFloat(pow(aVal, u_exponent));
+}
+`;
+
+export const SQRT_FRAGMENT = UNARY_FRAGMENT("sqrt(aVal)");
+export const ABS_FRAGMENT = UNARY_FRAGMENT("abs(aVal)");
+export const NEG_FRAGMENT = UNARY_FRAGMENT("-aVal");
+export const EXP_FRAGMENT = UNARY_FRAGMENT("exp(aVal)");
+export const LOG_FRAGMENT = UNARY_FRAGMENT("aVal > 0.0 ? log(aVal) : -1e38");
+export const RELU_FRAGMENT = UNARY_FRAGMENT("max(0.0, aVal)");
+export const SIGMOID_FRAGMENT = UNARY_FRAGMENT("1.0 / (1.0 + exp(-aVal))");
+export const TANH_FRAGMENT = UNARY_FRAGMENT("tanh(aVal)");
+
+export const CLAMP_FRAGMENT = `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_a;
+uniform vec2 u_params;
+uniform vec2 u_texSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
+  if (idx >= u_length) {
+    fragColor = packFloat(0.0);
+    return;
+  }
+  float aVal = unpackFloat(texelFetch(u_a, ivec2(gl_FragCoord.xy), 0));
+  fragColor = packFloat(clamp(aVal, u_params.x, u_params.y));
+}
+`;
+
+export const GELU_FRAGMENT = UNARY_FRAGMENT(
+  "0.5 * aVal * (1.0 + tanh(0.7978845608 * (aVal + 0.044715 * aVal * aVal * aVal)))"
+);
+
+export const LEAKY_RELU_FRAGMENT = `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_a;
+uniform float u_alpha;
+uniform vec2 u_texSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
+  if (idx >= u_length) {
+    fragColor = packFloat(0.0);
+    return;
+  }
+  float aVal = unpackFloat(texelFetch(u_a, ivec2(gl_FragCoord.xy), 0));
+  fragColor = packFloat(aVal >= 0.0 ? aVal : u_alpha * aVal);
+}
+`;
+
+const BINARY_COMPARE_FRAGMENT = (op: string) => `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_a;
+uniform sampler2D u_b;
+uniform vec2 u_texSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
+  if (idx >= u_length) {
+    fragColor = packFloat(0.0);
+    return;
+  }
+  float aVal = unpackFloat(texelFetch(u_a, ivec2(gl_FragCoord.xy), 0));
+  float bVal = unpackFloat(texelFetch(u_b, ivec2(gl_FragCoord.xy), 0));
+  fragColor = packFloat((${op}) ? 1.0 : 0.0);
+}
+`;
+
+export const EQUAL_FRAGMENT = BINARY_COMPARE_FRAGMENT("aVal == bVal");
+export const GREATER_FRAGMENT = BINARY_COMPARE_FRAGMENT("aVal > bVal");
+export const LESS_FRAGMENT = BINARY_COMPARE_FRAGMENT("aVal < bVal");
+
 export const REDUCE_SUM_FRAGMENT = `#version 300 es
 precision highp float;
 ${PACK_UNPACK}
@@ -144,6 +334,35 @@ void main() {
     b = unpackFloat(texelFetch(u_input, ivec2(x1, y1), 0));
   }
   fragColor = packFloat(max(a, b));
+}
+`;
+
+export const REDUCE_MIN_FRAGMENT = `#version 300 es
+precision highp float;
+${PACK_UNPACK}
+uniform sampler2D u_input;
+uniform vec2 u_inputTexSize;
+uniform vec2 u_outputTexSize;
+uniform float u_length;
+out vec4 fragColor;
+void main() {
+  float outIdx = floor(gl_FragCoord.y) * u_outputTexSize.x + floor(gl_FragCoord.x);
+  if (outIdx * 2.0 >= u_length) {
+    fragColor = packFloat(1e38);
+    return;
+  }
+  float inIdx0 = outIdx * 2.0;
+  float inIdx1 = outIdx * 2.0 + 1.0;
+  int x0 = int(mod(inIdx0, u_inputTexSize.x));
+  int y0 = int(floor(inIdx0 / u_inputTexSize.x));
+  float a = unpackFloat(texelFetch(u_input, ivec2(x0, y0), 0));
+  float b = 1e38;
+  if (inIdx1 < u_length) {
+    int x1 = int(mod(inIdx1, u_inputTexSize.x));
+    int y1 = int(floor(inIdx1 / u_inputTexSize.x));
+    b = unpackFloat(texelFetch(u_input, ivec2(x1, y1), 0));
+  }
+  fragColor = packFloat(min(a, b));
 }
 `;
 

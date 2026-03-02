@@ -23,7 +23,7 @@ import type { WebGLBackend } from "./backend/webgl-backend";
 import type { CPUBackend } from "./backend/cpu-backend";
 
 export { GPUArray } from "./array";
-export type { AccelContext } from "./types";
+export type { AccelContext, ProfilingEntry } from "./types";
 
 /**
  * Options for initializing the Accel GPU context.
@@ -35,6 +35,8 @@ export interface InitOptions {
   forceWebGL?: boolean;
   /** Run in a Web Worker (reserved for future use) */
   worker?: boolean;
+  /** Enable profiling from the start */
+  profiling?: boolean;
 }
 
 /**
@@ -78,16 +80,70 @@ export async function init(options?: InitOptions): Promise<AccelContext> {
     backendType = result.backendType;
   }
 
+  const profilingEntries: import("./types").ProfilingEntry[] = [];
+  let profilingEnabled = options?.profiling ?? false;
+
   const ctx: AccelContext = {
     backend,
     runner,
     backendType,
+    enableProfiling(enable: boolean) {
+      profilingEnabled = enable;
+    },
+    recordOp(op: string, durationMs: number) {
+      if (profilingEnabled) {
+        profilingEntries.push({ op, durationMs, timestamp: performance.now() });
+      }
+    },
+    getProfilingResults() {
+      return [...profilingEntries];
+    },
     array(data: Float32Array | number[], shape?: number[]) {
       const arr = data instanceof Float32Array ? data : new Float32Array(data);
       const G = (globalThis as any).GPUBufferUsage;
       const usage = G.STORAGE | G.COPY_SRC | G.COPY_DST;
       const buffer = backend.createBufferFromData(arr.buffer as ArrayBuffer, usage);
       return new GPUArray(backend, runner, buffer, arr.length, shape ?? [arr.length]);
+    },
+    zeros(shape: number[]) {
+      const size = shape.reduce((a, b) => a * b, 1);
+      return ctx.array(new Float32Array(size).fill(0), shape);
+    },
+    ones(shape: number[]) {
+      const size = shape.reduce((a, b) => a * b, 1);
+      return ctx.array(new Float32Array(size).fill(1), shape);
+    },
+    full(shape: number[], value: number) {
+      const size = shape.reduce((a, b) => a * b, 1);
+      return ctx.array(new Float32Array(size).fill(value), shape);
+    },
+    arange(start: number, stop: number, step = 1) {
+      const len = Math.max(0, Math.ceil((stop - start) / step));
+      const arr = new Float32Array(len);
+      for (let i = 0; i < len; i++) arr[i] = start + i * step;
+      return ctx.array(arr);
+    },
+    linspace(start: number, stop: number, num: number) {
+      const arr = new Float32Array(num);
+      if (num === 1) arr[0] = start;
+      else for (let i = 0; i < num; i++) arr[i] = start + (stop - start) * (i / (num - 1));
+      return ctx.array(arr);
+    },
+    random(shape: number[]) {
+      const size = shape.reduce((a, b) => a * b, 1);
+      const arr = new Float32Array(size);
+      for (let i = 0; i < size; i++) arr[i] = Math.random();
+      return ctx.array(arr, shape);
+    },
+    randn(shape: number[]) {
+      const size = shape.reduce((a, b) => a * b, 1);
+      const arr = new Float32Array(size);
+      for (let i = 0; i < size; i++) {
+        const u1 = Math.random();
+        const u2 = Math.random();
+        arr[i] = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      }
+      return ctx.array(arr, shape);
     },
     fromImageData(imageData: ImageData): GPUArray {
       const { width, height, data } = imageData;
@@ -113,9 +169,14 @@ export async function init(options?: InitOptions): Promise<AccelContext> {
   return ctx;
 }
 
-/** Math ops: add, mul, sum, max. Mutate first arg in-place. */
-export { add, mul, sum, max } from "./ops/math";
-/** Linear algebra: matmul, dot, transpose. */
+/** Math ops: add, sub, mul, div, sum, max, min, mean. Mutate first arg in-place. */
+export { add, sub, mul, div, sum, max, min, mean } from "./ops/math";
+/** Linear algebra: matmul, dot, transpose, inv, det, solve, qr, svd. */
 export { matmul, dot, transpose } from "./ops/linear";
-/** ML primitives: softmax, layerNorm, attentionScores. */
-export { softmax, layerNorm, attentionScores } from "./ops/ml";
+export { inv, det, solve, qr, svd } from "./ops/matrix";
+/** ML primitives: softmax, layerNorm, attentionScores, batchNorm. */
+export { softmax, layerNorm, attentionScores, batchNorm } from "./ops/ml";
+/** Convolution and pooling: maxPool2d, avgPool2d, conv2d. */
+export { maxPool2d, avgPool2d, conv2d } from "./ops/conv";
+/** FFT and spectrogram: fft, ifft, fftMagnitude, spectrogram. */
+export { fft, ifft, fftMagnitude, spectrogram } from "./ops/fft";

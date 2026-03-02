@@ -11,7 +11,7 @@ A lightweight WebGPU wrapper for data processing and math. No WGSL required. Aut
 ### Why accel-gpu?
 
 - **Shader-free API** — No WGSL or GLSL. Write NumPy-like JavaScript; kernels are built-in.
-- **Zero dependencies** — ~65KB minified, lightweight and self-contained.
+- **Zero dependencies** — ~160KB minified, lightweight and self-contained.
 - **Universal fallback** — WebGPU → WebGL2 → CPU. Runs in Safari, Firefox, Node, and headless.
 - **Shape inference** — Matmul and ML ops automatically infer dimensions.
 - **Performance** — WebGPU delivers 2–3× speedups over WebGL for compute; ~20× faster than CPU on large matmul (Chrome, M3 MacBook).
@@ -62,10 +62,14 @@ console.log(await probs.toArray());
 ## Demos
 
 - **[Demo](https://phantasm0009.github.io/accel-gpu/example/)** — Basic usage
-- **[Benchmarks](https://phantasm0009.github.io/accel-gpu/benchmark/)** — WebGPU vs WebGL vs CPU performance comparison
+- **[Image Processing](https://phantasm0009.github.io/accel-gpu/example/image/)** — Brightness, contrast, invert
+- **[Heatmap](https://phantasm0009.github.io/accel-gpu/example/heatmap/)** — GPU-computed 2D data visualization
+- **[Neural Network](https://phantasm0009.github.io/accel-gpu/example/nn/)** — Feedforward inference (MNIST-style)
+- **[N-Body](https://phantasm0009.github.io/accel-gpu/example/nbody/)** — Gravitational particle simulation
+- **[Benchmarks](https://phantasm0009.github.io/accel-gpu/benchmark/)** — WebGPU vs WebGL vs CPU performance
 - **[Playground](https://phantasm0009.github.io/accel-gpu/playground/)** — Interactive code editor
 
-Run `npm run build` first, then `npx serve .` — visit `/`, `/example/`, `/benchmark/`, or `/playground/`.
+Run `npm run build` first, then `npx serve .` — visit `/`, `/example/`, `/example/image/`, etc.
 
 ## API Reference
 
@@ -83,40 +87,84 @@ const gpu = await init({ forceWebGL: true }); // Force WebGL2
 const arr = gpu.array([1, 2, 3]);
 const arr2 = gpu.array(new Float32Array([1, 2, 3]), [3]); // with shape
 const mat = gpu.array(data, [2, 3]); // 2×3 matrix
+const z = gpu.zeros([2, 3]);        // all zeros
+const o = gpu.ones([2, 3]);         // all ones
+const r = gpu.arange(0, 10, 2);     // [0, 2, 4, 6, 8]
+const l = gpu.linspace(0, 1, 100);  // 100 values from 0 to 1
+const rand = gpu.random([2, 3]);    // uniform [0, 1)
+const norm = gpu.randn([2, 3]);     // standard normal
 ```
 
 ### Math Operations (chainable)
 
-
 | Method                   | Description           |
 | ------------------------ | --------------------- |
 | `a.add(b)` or `a.add(5)` | Element-wise add      |
+| `a.sub(b)` or `a.sub(5)` | Element-wise subtract |
 | `a.mul(b)` or `a.mul(2)` | Element-wise multiply |
-| `a.sum()`                | Reduce sum → scalar   |
-| `a.max()`                | Reduce max → scalar   |
+| `a.div(b)` or `a.div(2)` | Element-wise divide   |
+| `a.pow(2)`               | Element-wise power    |
+| `a.sqrt()`, `a.abs()`, `a.neg()` | Unary ops     |
+| `a.exp()`, `a.log()`     | Element-wise exp/log  |
+| `a.sum()`, `a.max()`, `a.min()`, `a.mean()` | Reductions (pass `axis` for axis-specific) |
+| `a.variance()`, `a.std()`, `a.argmax()`, `a.argmin()` | Stats |
 | `a.dot(b)`               | Dot product → scalar  |
 | `a.reshape(2, 3)`        | Reshape (same length) |
-
+| `a.relu()`, `a.sigmoid()`, `a.tanh()`, `a.gelu()`, `a.leakyRelu(α)` | Activations |
+| `a.clamp(min, max)`      | Clamp values          |
+| `a.equal(b)`, `a.greater(b)`, `a.less(b)` | Comparison (returns 0/1 mask) |
+| `a.slice(start, end)`, `a.get(i)`, `a.set(i, v)` | Slicing |
+| `a.concat(b)`, `a.split(n)` | Concat/split |
+| `a.flatten()`, `a.squeeze()`, `a.unsqueeze(dim)` | Shape |
+| `a.broadcast(shape)`     | NumPy-style broadcast |
+| `a.norm(ord?)`, `a.outer(b)` | Norm, outer product |
+| `a.mse(target)`, `a.crossEntropy(target)` | Loss functions |
+| `a.normalize(axis?)`     | L2 normalize along axis |
+| `a.dispose()`, `a.isDisposed` | Memory management |
+| `a.toArraySync()`        | Sync read (CPU only)  |
 
 ### Linear Algebra
-
 
 | Function                          | Description                       |
 | --------------------------------- | --------------------------------- |
 | `matmul(gpu, A, B)`               | Matrix multiply (shape inference) |
-| `matmul(gpu, A, B, M, N, K)`      | Explicit dimensions               |
 | `dot(gpu, a, b)`                  | Vector dot product                |
 | `transpose(gpu, a, rows?, cols?)` | Transpose matrix                  |
-
+| `inv(gpu, a)`, `det(gpu, a)`      | Inverse, determinant              |
+| `solve(gpu, A, b)`                | Solve Ax = b                      |
+| `qr(gpu, a)`                      | QR decomposition                  |
+| `svd(gpu, a)`                     | Singular value decomposition      |
 
 ### ML Primitives
-
 
 | Function                                           | Description                 |
 | -------------------------------------------------- | --------------------------- |
 | `softmax(gpu, input, rows?, cols?)`                | Softmax over last dimension |
 | `layerNorm(gpu, input, gamma, beta, rows?, cols?)` | Layer normalization         |
+| `batchNorm(gpu, input, gamma, beta, rows?, cols?)` | Batch normalization         |
 | `attentionScores(gpu, Q, K, seq?, dim?)`           | Q @ K^T / sqrt(dim)         |
+| `maxPool2d(gpu, input, kernelSize, stride?, padding?)` | Max pooling 2D      |
+| `avgPool2d(gpu, input, kernelSize, stride?, padding?)` | Avg pooling 2D      |
+| `conv2d(gpu, input, kernel, stride?, padding?)`   | 2D convolution              |
+
+### FFT & Signal
+
+| Function | Description |
+| -------- | ----------- |
+| `fft(gpu, input)` | Forward FFT (power-of-2 length) |
+| `ifft(gpu, input)` | Inverse FFT |
+| `fftMagnitude(gpu, complex)` | Magnitude spectrum |
+| `spectrogram(gpu, input, frameLength, hopLength?, window?)` | STFT + magnitude |
+
+### Profiling
+
+```js
+const gpu = await init({ profiling: true });
+gpu.enableProfiling(true);
+// ... run ops ...
+gpu.recordOp("matmul", 12.5); // manual timing
+const results = gpu.getProfilingResults();
+```
 
 
 ### Canvas Integration
