@@ -140,7 +140,7 @@ const data = await arr.toArray(); // Float32Array
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, architecture, and guidelines. Quick start: clone, `npm install`, `npm test`, then open a PR.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, architecture, and guidelines. Quick start: clone, `npm install`, `npm test`, then open a PR. We adhere to the [Contributor Covenant](CODE_OF_CONDUCT.md) code of conduct.
 
 ## License
 

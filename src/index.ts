@@ -113,6 +113,9 @@ export async function init(options?: InitOptions): Promise<AccelContext> {
   return ctx;
 }
 
+/** Math ops: add, mul, sum, max. Mutate first arg in-place. */
 export { add, mul, sum, max } from "./ops/math";
+/** Linear algebra: matmul, dot, transpose. */
 export { matmul, dot, transpose } from "./ops/linear";
+/** ML primitives: softmax, layerNorm, attentionScores. */
 export { softmax, layerNorm, attentionScores } from "./ops/ml";

@@ -15,6 +15,7 @@ export function mul(ctx: AccelContext, a: GPUArray, b: GPUArray): Promise<GPUArr
   return a.mul(b);
 }
 
+/** Reduce sum over all elements. */
 export function sum(ctx: AccelContext, a: GPUArray): Promise<number> {
   return a.sum();
 }
