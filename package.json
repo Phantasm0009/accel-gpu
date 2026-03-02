@@ -1,6 +1,6 @@
 {
   "name": "accel-gpu",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "NumPy for the browser GPU — zero shaders, zero dependencies",
   "type": "module",
   "main": "./dist/index.cjs",
