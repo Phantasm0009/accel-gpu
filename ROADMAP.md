@@ -67,6 +67,14 @@
 
 ## Planned
 
-### Future
+### Backend & Performance
+- WebAssembly CPU backend for better Node.js performance
+- Web Worker support for parallel execution
 - GPU-accelerated FFT, conv2d, pooling
 - GPU matrix ops (inv, qr, svd)
+
+### Optimization
+- Automatic kernel fusion optimization
+
+### Training
+- Gradient computation (autograd) for training
