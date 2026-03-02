@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heatmap — accel-gpu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d1117; --bg-elevated: #161b22; --border: #30363d; --text: #e6edf3; --text-muted: #8b949e; --accent: #58a6ff; }
+    * { box-sizing: border-box; }
+    body { font-family: "IBM Plex Sans", sans-serif; margin: 0; padding: 2rem; background: var(--bg); color: var(--text); }
+    .wrap { max-width: 700px; margin: 0 auto; }
+    .back { margin-bottom: 1.5rem; }
+    .back a { color: var(--text-muted); text-decoration: none; }
+    .back a:hover { color: var(--accent); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+    p { color: var(--text-muted); margin: 0 0 1.5rem; }
+    .canvas-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem; margin-bottom: 1rem; }
+    .canvas-box h3 { font-size: 0.85rem; margin: 0 0 0.5rem; font-weight: 500; color: var(--text-muted); }
+    .canvas-box canvas { display: block; width: 100%; max-width: 512px; border-radius: 4px; }
+    .status { font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="back"><a href="../">← accel-gpu</a></div>
+    <h1>Heatmap</h1>
+    <p>GPU-computed 2D data (sine wave + Gaussian) rendered as a heatmap. Values normalized and mapped to colors.</p>
+
+    <div class="canvas-box">
+      <h3>Heatmap (256×256)</h3>
+      <canvas id="heatmap" width="256" height="256"></canvas>
+    </div>
+    <p class="status" id="status">Loading…</p>
+  </div>
+
+  <script type="module">
+    import { init } from "../../dist/index.js";
+
+    const heatmap = document.getElementById("heatmap");
+    const status = document.getElementById("status");
+
+    function valueToColor(t) {
+      const r = Math.max(0, Math.min(255, Math.round(255 * (1 - 2 * Math.max(0, t - 0.5)))));
+      const b = Math.max(0, Math.min(255, Math.round(255 * (1 - 2 * Math.max(0, 0.5 - t)))));
+      const g = 255 - r - b;
+      return [r, g, b, 255];
+    }
+
+    (async () => {
+      const gpu = await init();
+      status.textContent = "Computing…";
+      try {
+        const W = 256;
+        const H = 256;
+        const data = new Float32Array(W * H);
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const nx = x / W - 0.5;
+            const ny = y / H - 0.5;
+            data[y * W + x] = Math.sin(nx * 8) * Math.sin(ny * 8) * 0.5 +
+              Math.exp(-(nx * nx + ny * ny) * 4) * 0.5;
+          }
+        }
+        const arr = gpu.array(data, [H, W]);
+        const minVal = await arr.min();
+        await arr.sub(minVal);
+        const maxVal = await arr.max();
+        await arr.div(maxVal);
+        const out = await arr.toArray();
+        const ctx = heatmap.getContext("2d");
+        const imageData = ctx.createImageData(W, H);
+        for (let i = 0; i < W * H; i++) {
+          const [r, g, b, a] = valueToColor(out[i]);
+          imageData.data[i * 4] = r;
+          imageData.data[i * 4 + 1] = g;
+          imageData.data[i * 4 + 2] = b;
+          imageData.data[i * 4 + 3] = a;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        status.textContent = `Backend: ${gpu.backendType} — ${W}×${H} heatmap`;
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+        status.style.color = "#f85149";
+      }
+    })();
+  </script>
+</body>
+</html>

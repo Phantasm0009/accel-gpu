@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N-Body Simulation — accel-gpu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d1117; --bg-elevated: #161b22; --border: #30363d; --text: #e6edf3; --text-muted: #8b949e; --accent: #58a6ff; }
+    * { box-sizing: border-box; }
+    body { font-family: "IBM Plex Sans", sans-serif; margin: 0; padding: 2rem; background: var(--bg); color: var(--text); }
+    .wrap { max-width: 700px; margin: 0 auto; }
+    .back { margin-bottom: 1.5rem; }
+    .back a { color: var(--text-muted); text-decoration: none; }
+    .back a:hover { color: var(--accent); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+    p { color: var(--text-muted); margin: 0 0 1.5rem; }
+    .canvas-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem; margin-bottom: 1rem; }
+    .canvas-box canvas { display: block; width: 100%; max-width: 512px; border-radius: 4px; }
+    .status { font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; }
+    .btn { padding: 0.5rem 1rem; background: var(--accent); border: none; border-radius: 6px; color: #fff; cursor: pointer; font-size: 0.9rem; margin-right: 0.5rem; }
+    .btn:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="back"><a href="../">← accel-gpu</a></div>
+    <h1>N-Body Simulation</h1>
+    <p>Simple gravitational N-body simulation. 64 particles, GPU-accelerated force computation. Uses matmul for position differences.</p>
+
+    <div class="canvas-box">
+      <canvas id="canvas" width="512" height="512"></canvas>
+    </div>
+    <button class="btn" id="runBtn">Run 10 steps</button>
+    <p class="status" id="status">Loading…</p>
+  </div>
+
+  <script type="module">
+    import { init, matmul } from "../../dist/index.js";
+
+    const canvas = document.getElementById("canvas");
+    const runBtn = document.getElementById("runBtn");
+    const status = document.getElementById("status");
+
+    const N = 64;
+    const G = 0.0001;
+    const dt = 0.5;
+
+    (async () => {
+      const gpu = await init();
+      status.textContent = `Backend: ${gpu.backendType}. Click Run.`;
+
+      let pos = gpu.array(new Float32Array(N * 2));
+      let vel = gpu.array(new Float32Array(N * 2));
+      const posData = await pos.toArray();
+      for (let i = 0; i < N; i++) {
+        posData[i * 2] = (Math.random() - 0.5) * 2;
+        posData[i * 2 + 1] = (Math.random() - 0.5) * 2;
+      }
+      pos = gpu.array(posData, [N, 2]);
+
+      async function draw() {
+        const p = await pos.toArray();
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#0d1117";
+        ctx.fillRect(0, 0, 512, 512);
+        const scale = 100;
+        const cx = 256;
+        const cy = 256;
+        for (let i = 0; i < N; i++) {
+          const x = cx + p[i * 2] * scale;
+          const y = cy + p[i * 2 + 1] * scale;
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = "#58a6ff";
+          ctx.fill();
+        }
+      }
+
+      runBtn.addEventListener("click", async () => {
+        runBtn.disabled = true;
+        status.textContent = "Running…";
+        try {
+          for (let step = 0; step < 10; step++) {
+            const p = await pos.toArray();
+            const acc = new Float32Array(N * 2);
+            for (let i = 0; i < N; i++) {
+              let ax = 0;
+              let ay = 0;
+              for (let j = 0; j < N; j++) {
+                if (i === j) continue;
+                const dx = p[j * 2] - p[i * 2];
+                const dy = p[j * 2 + 1] - p[i * 2 + 1];
+                const d2 = dx * dx + dy * dy + 0.01;
+                const f = G / d2;
+                ax += (dx / Math.sqrt(d2)) * f;
+                ay += (dy / Math.sqrt(d2)) * f;
+              }
+              acc[i * 2] = ax;
+              acc[i * 2 + 1] = ay;
+            }
+            const accArr = gpu.array(acc, [N, 2]);
+            await accArr.mul(dt);
+            await vel.add(accArr);
+            const velDt = await vel.clone();
+            await velDt.mul(dt);
+            await pos.add(velDt);
+          }
+          await draw();
+          status.textContent = "Done. 10 steps completed.";
+        } catch (err) {
+          status.textContent = "Error: " + err.message;
+          status.style.color = "#f85149";
+        }
+        runBtn.disabled = false;
+      });
+
+      await draw();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Network — accel-gpu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d1117; --bg-elevated: #161b22; --border: #30363d; --text: #e6edf3; --text-muted: #8b949e; --accent: #58a6ff; --success: #3fb950; }
+    * { box-sizing: border-box; }
+    body { font-family: "IBM Plex Sans", sans-serif; margin: 0; padding: 2rem; background: var(--bg); color: var(--text); }
+    .wrap { max-width: 640px; margin: 0 auto; }
+    .back { margin-bottom: 1.5rem; }
+    .back a { color: var(--text-muted); text-decoration: none; }
+    .back a:hover { color: var(--accent); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+    p { color: var(--text-muted); margin: 0 0 1.5rem; }
+    .output { font-family: "IBM Plex Mono", monospace; font-size: 0.9rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; line-height: 1.7; }
+    .digit { display: inline-block; width: 1.2em; text-align: center; margin: 0 0.2em; }
+    .digit.winner { color: var(--success); font-weight: 600; }
+    .status { font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="back"><a href="../">← accel-gpu</a></div>
+    <h1>Simple Neural Network</h1>
+    <p>Feedforward inference: 784 → 128 (ReLU) → 10 (softmax). Random weights for demo. Simulates MNIST-style digit classification.</p>
+
+    <div class="output" id="output">Running inference…</div>
+    <p class="status" id="status"></p>
+  </div>
+
+  <script type="module">
+    import { init, matmul, softmax } from "../../dist/index.js";
+
+    function xavierInit(rows, cols) {
+      const scale = Math.sqrt(2 / (rows + cols));
+      const arr = new Float32Array(rows * cols);
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = (Math.random() * 2 - 1) * scale;
+      }
+      return arr;
+    }
+
+    (async () => {
+      const gpu = await init();
+      const status = document.getElementById("status");
+      const output = document.getElementById("output");
+      status.textContent = `Backend: ${gpu.backendType}`;
+
+      try {
+        const inputSize = 784;
+        const hiddenSize = 128;
+        const outputSize = 10;
+
+        const W1 = gpu.array(xavierInit(inputSize, hiddenSize), [inputSize, hiddenSize]);
+        const b1 = gpu.array(new Float32Array(hiddenSize).fill(0.1), [1, hiddenSize]);
+        const W2 = gpu.array(xavierInit(hiddenSize, outputSize), [hiddenSize, outputSize]);
+        const b2 = gpu.array(new Float32Array(outputSize).fill(0));
+
+        const x = gpu.randn([1, inputSize]);
+        await x.mul(0.1);
+
+        const h = await matmul(gpu, x, W1);
+        await h.add(b1);
+        await h.relu();
+
+        const logits = await matmul(gpu, h, W2);
+        await logits.add(b2);
+
+        const probs = await softmax(gpu, logits);
+        const probsArr = await probs.toArray();
+
+        let html = "Class probabilities: ";
+        let maxIdx = 0;
+        let maxVal = 0;
+        for (let i = 0; i < 10; i++) {
+          const p = probsArr[i];
+          if (p > maxVal) { maxVal = p; maxIdx = i; }
+          html += `<span class="digit ${i === maxIdx ? "winner" : ""}">${i}: ${(p * 100).toFixed(1)}%</span>`;
+        }
+        output.innerHTML = html + `<br><br>Predicted digit: <strong>${maxIdx}</strong>`;
+      } catch (err) {
+        output.textContent = "Error: " + err.message;
+        output.style.color = "#f85149";
+      }
+    })();
+  </script>
+</body>
+</html>
