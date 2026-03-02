@@ -18,11 +18,11 @@ A lightweight WebGPU wrapper for data processing and math. No WGSL required. Aut
 
 Compared to TensorFlow.js or GPU.js, accel-gpu offers a simpler API focused on core array operations without the overhead of a full ML framework.
 
-[npm](https://www.npmjs.com/package/accel-gpu)
-[Bundlephobia](https://bundlephobia.com/package/accel-gpu)
-[Tests](https://github.com/Phantasm0009/accel-gpu/actions/workflows/test.yml)
-[License: MIT](https://opensource.org/licenses/MIT)
-[TypeScript](https://www.typescriptlang.org/)
+[![npm](https://img.shields.io/npm/v/accel-gpu)](https://www.npmjs.com/package/accel-gpu)
+[![Bundlephobia](https://img.shields.io/bundlephobia/minzip/accel-gpu)](https://bundlephobia.com/package/accel-gpu)
+[![Tests](https://github.com/Phantasm0009/accel-gpu/actions/workflows/test.yml/badge.svg)](https://github.com/Phantasm0009/accel-gpu/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](https://www.typescriptlang.org/)
 
 ## Install
 

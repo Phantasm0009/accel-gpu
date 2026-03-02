@@ -50,6 +50,7 @@ Thanks for your interest! Contributions are welcome.
   - `array.ts` — `GPUArray` class, method chaining
   - `backend/` — WebGPU, WebGL2, and CPU backends
   - `ops/` — Math, linear algebra, ML primitives
+  - `__tests__/` — Vitest test suite
 - **`scripts/`** — Build and site scripts
 - **`example/`, `benchmark/`, `playground/`** — Demo pages
 
