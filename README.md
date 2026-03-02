@@ -1,6 +1,8 @@
 # accel-gpu
 
-
+<p align="center">
+  <img src="icon.png" alt="accel-gpu" width="64" height="64">
+</p>
 
 **NumPy for the browser GPU — zero shaders, zero dependencies.**
 
