@@ -17,6 +17,7 @@ const copy = (src, dest = src) => {
 };
 
 copy("index.html");
+copy("icon.png");
 copy("example");
 copy("benchmark");
 copy("playground");

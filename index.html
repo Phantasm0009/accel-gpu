@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>accel-gpu — NumPy for the browser GPU</title>
+  <link rel="icon" href="icon.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -151,12 +152,18 @@
       <a href="example/" class="primary">Demo</a>
       <a href="benchmark/">Benchmarks</a>
       <a href="playground/">Playground</a>
+      <a href="https://github.com/Phantasm0009/accel-gpu#readme" target="_blank" rel="noopener">API Reference</a>
       <a href="https://github.com/Phantasm0009/accel-gpu" target="_blank" rel="noopener">GitHub</a>
       <a href="https://www.npmjs.com/package/accel-gpu" target="_blank" rel="noopener">npm</a>
     </nav>
 
     <h2>Install</h2>
     <pre><code>npm install accel-gpu</code></pre>
+
+    <h2>Initialize</h2>
+    <pre><code>const gpu = await init();
+const gpu = await init({ forceCPU: true });   // Force CPU for testing
+const gpu = await init({ forceWebGL: true }); // Force WebGL2</code></pre>
 
     <h2>Quick Start</h2>
     <pre><code>import { init, matmul, softmax } from "accel-gpu";
@@ -211,6 +218,7 @@ const scores = await attentionScores(gpu, Q, K);</code></pre>
     </ul>
 
     <div class="footer">
+      <a href="https://github.com/Phantasm0009/accel-gpu#readme">Full API Reference</a> ·
       <a href="https://github.com/Phantasm0009/accel-gpu">Repository</a> ·
       <a href="https://www.npmjs.com/package/accel-gpu">npm</a>
     </div>

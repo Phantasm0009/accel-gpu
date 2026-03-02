@@ -35,12 +35,9 @@ export async function softmax(
   const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
   const outBuffer = ctx.backend.createBuffer(r * c * 4, usage);
 
-  await (ctx.runner as { softmax(i: unknown, o: unknown, r: number, c: number): Promise<void> }).softmax(
-    input.getBuffer(),
-    outBuffer,
-    r,
-    c
-  );
+  await (
+    ctx.runner as { softmax(i: unknown, o: unknown, r: number, c: number): Promise<void> }
+  ).softmax(input.getBuffer(), outBuffer, r, c);
 
   const resultShape = r === 1 ? [c] : [r, c];
   return new (await import("../array")).GPUArray(
@@ -74,13 +71,17 @@ export async function layerNorm(
   }
 
   if (input.length !== r * c || gamma.length !== c || beta.length !== c) {
-    throw new Error(`layerNorm: shape mismatch — input ${r}×${c}, gamma and beta must have length ${c}.`);
+    throw new Error(
+      `layerNorm: shape mismatch — input ${r}×${c}, gamma and beta must have length ${c}.`
+    );
   }
 
   const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
   const outBuffer = ctx.backend.createBuffer(r * c * 4, usage);
 
-  const runner = ctx.runner as { layerNorm(i: unknown, g: unknown, b: unknown, o: unknown, r: number, c: number): Promise<void> };
+  const runner = ctx.runner as {
+    layerNorm(i: unknown, g: unknown, b: unknown, o: unknown, r: number, c: number): Promise<void>;
+  };
   await runner.layerNorm(input.getBuffer(), gamma.getBuffer(), beta.getBuffer(), outBuffer, r, c);
 
   return new (await import("../array")).GPUArray(ctx.backend, ctx.runner, outBuffer, r * c, [r, c]);
@@ -103,7 +104,9 @@ export async function attentionScores(
   } else if (Q.shape.length === 2 && K.shape.length === 2) {
     [s, d] = Q.shape;
     if (K.shape[0] !== s || K.shape[1] !== d) {
-      throw new Error(`attentionScores: Q is ${s}×${d}, K must match (got ${K.shape[0]}×${K.shape[1]}).`);
+      throw new Error(
+        `attentionScores: Q is ${s}×${d}, K must match (got ${K.shape[0]}×${K.shape[1]}).`
+      );
     }
   } else {
     throw new Error("attentionScores: provide seq and dim, or use 2D arrays with shape.");
@@ -116,7 +119,9 @@ export async function attentionScores(
   const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
   const outBuffer = ctx.backend.createBuffer(s * s * 4, usage);
 
-  const runner = ctx.runner as { attentionScores(Q: unknown, K: unknown, o: unknown, seq: number, dim: number): Promise<void> };
+  const runner = ctx.runner as {
+    attentionScores(Q: unknown, K: unknown, o: unknown, seq: number, dim: number): Promise<void>;
+  };
   await runner.attentionScores(Q.getBuffer(), K.getBuffer(), outBuffer, s, d);
 
   return new (await import("../array")).GPUArray(ctx.backend, ctx.runner, outBuffer, s * s, [s, s]);

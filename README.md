@@ -1,16 +1,34 @@
 # accel-gpu
 
+
+
 **NumPy for the browser GPU — zero shaders, zero dependencies.**
 
-A lightweight WebGPU wrapper for data processing and math. No WGSL required. Automatic WebGL2 and CPU fallback. Perfect for local-first AI, data dashboards, and heavy array computations.
+A lightweight WebGPU wrapper for data processing and math. No WGSL required. Automatic fallback to WebGL2 or CPU. Perfect for local-first AI, data dashboards, and heavy array computations.
 
-[![npm](https://img.shields.io/npm/v/accel-gpu)](https://www.npmjs.com/package/accel-gpu)
+### Why accel-gpu?
+
+- **Shader-free API** — No WGSL or GLSL. Write NumPy-like JavaScript; kernels are built-in.
+- **Zero dependencies** — ~65KB minified, lightweight and self-contained.
+- **Universal fallback** — WebGPU → WebGL2 → CPU. Runs in Safari, Firefox, Node, and headless.
+- **Shape inference** — Matmul and ML ops automatically infer dimensions.
+- **Performance** — WebGPU delivers 2–3× speedups over WebGL for compute; ~20× faster than CPU on large matmul (Chrome, M3 MacBook).
+
+Compared to TensorFlow.js or GPU.js, accel-gpu offers a simpler API focused on core array operations without the overhead of a full ML framework.
+
+[npm](https://www.npmjs.com/package/accel-gpu)
+[Bundlephobia](https://bundlephobia.com/package/accel-gpu)
+[Tests](https://github.com/Phantasm0009/accel-gpu/actions/workflows/test.yml)
+[License: MIT](https://opensource.org/licenses/MIT)
+[TypeScript](https://www.typescriptlang.org/)
 
 ## Install
 
 ```bash
 npm install accel-gpu
 ```
+
+**TypeScript:** Definitions are included; no `@types` package needed.
 
 ## Quick Start
 
@@ -42,10 +60,10 @@ console.log(await probs.toArray());
 ## Demos
 
 - **[Demo](https://phantasm0009.github.io/accel-gpu/example/)** — Basic usage
-- **[Benchmarks](https://phantasm0009.github.io/accel-gpu/benchmark/)** — WebGPU vs WebGL vs CPU
+- **[Benchmarks](https://phantasm0009.github.io/accel-gpu/benchmark/)** — WebGPU vs WebGL vs CPU performance comparison
 - **[Playground](https://phantasm0009.github.io/accel-gpu/playground/)** — Interactive code editor
 
-Run locally: `npx serve .` then open `/`, `/example/`, `/benchmark/`, `/playground/`.
+Run `npm run build` first, then `npx serve .` — visit `/`, `/example/`, `/benchmark/`, or `/playground/`.
 
 ## API Reference
 
@@ -67,31 +85,37 @@ const mat = gpu.array(data, [2, 3]); // 2×3 matrix
 
 ### Math Operations (chainable)
 
-| Method | Description |
-|--------|-------------|
-| `a.add(b)` or `a.add(5)` | Element-wise add |
+
+| Method                   | Description           |
+| ------------------------ | --------------------- |
+| `a.add(b)` or `a.add(5)` | Element-wise add      |
 | `a.mul(b)` or `a.mul(2)` | Element-wise multiply |
-| `a.sum()` | Reduce sum → scalar |
-| `a.max()` | Reduce max → scalar |
-| `a.dot(b)` | Dot product → scalar |
-| `a.reshape(2, 3)` | Reshape (same length) |
+| `a.sum()`                | Reduce sum → scalar   |
+| `a.max()`                | Reduce max → scalar   |
+| `a.dot(b)`               | Dot product → scalar  |
+| `a.reshape(2, 3)`        | Reshape (same length) |
+
 
 ### Linear Algebra
 
-| Function | Description |
-|----------|-------------|
-| `matmul(gpu, A, B)` | Matrix multiply (shape inference) |
-| `matmul(gpu, A, B, M, N, K)` | Explicit dimensions |
-| `dot(gpu, a, b)` | Vector dot product |
-| `transpose(gpu, a, rows?, cols?)` | Transpose matrix |
+
+| Function                          | Description                       |
+| --------------------------------- | --------------------------------- |
+| `matmul(gpu, A, B)`               | Matrix multiply (shape inference) |
+| `matmul(gpu, A, B, M, N, K)`      | Explicit dimensions               |
+| `dot(gpu, a, b)`                  | Vector dot product                |
+| `transpose(gpu, a, rows?, cols?)` | Transpose matrix                  |
+
 
 ### ML Primitives
 
-| Function | Description |
-|----------|-------------|
-| `softmax(gpu, input, rows?, cols?)` | Softmax over last dimension |
-| `layerNorm(gpu, input, gamma, beta, rows?, cols?)` | Layer normalization |
-| `attentionScores(gpu, Q, K, seq?, dim?)` | Q @ K^T / sqrt(dim) |
+
+| Function                                           | Description                 |
+| -------------------------------------------------- | --------------------------- |
+| `softmax(gpu, input, rows?, cols?)`                | Softmax over last dimension |
+| `layerNorm(gpu, input, gamma, beta, rows?, cols?)` | Layer normalization         |
+| `attentionScores(gpu, Q, K, seq?, dim?)`           | Q @ K^T / sqrt(dim)         |
+
 
 ### Canvas Integration
 
@@ -111,6 +135,10 @@ const data = await arr.toArray(); // Float32Array
 1. **WebGPU** — Chrome 113+, Edge 113+ (best performance)
 2. **WebGL2** — Safari, Firefox, older Chrome (GPU-accelerated)
 3. **CPU** — Node, headless, or when no GPU available
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, architecture, and guidelines. Quick start: clone, `npm install`, `npm test`, then open a PR.
 
 ## License
 

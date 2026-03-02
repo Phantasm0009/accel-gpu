@@ -34,12 +34,7 @@ export class KernelRunner {
     return pipeline;
   }
 
-  async add(
-    a: GPUBuffer,
-    b: GPUBuffer,
-    out: GPUBuffer,
-    length: number
-  ): Promise<void> {
+  async add(a: GPUBuffer, b: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
     const pipeline = await this.getPipeline("add", ADD_SHADER);
     const bindGroup = this.backend.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
@@ -53,12 +48,7 @@ export class KernelRunner {
     this.backend.runPipeline(pipeline, [bindGroup], [workgroups]);
   }
 
-  async mul(
-    a: GPUBuffer,
-    b: GPUBuffer,
-    out: GPUBuffer,
-    length: number
-  ): Promise<void> {
+  async mul(a: GPUBuffer, b: GPUBuffer, out: GPUBuffer, length: number): Promise<void> {
     const pipeline = await this.getPipeline("mul", MUL_SHADER);
     const bindGroup = this.backend.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
@@ -72,12 +62,7 @@ export class KernelRunner {
     this.backend.runPipeline(pipeline, [bindGroup], [workgroups]);
   }
 
-  async mulScalar(
-    a: GPUBuffer,
-    scalar: number,
-    out: GPUBuffer,
-    length: number
-  ): Promise<void> {
+  async mulScalar(a: GPUBuffer, scalar: number, out: GPUBuffer, length: number): Promise<void> {
     const pipeline = await this.getPipeline("mul_scalar", MUL_SCALAR_SHADER);
     const uniformBuffer = this.backend.device.createBuffer({
       size: 4,
@@ -137,11 +122,7 @@ export class KernelRunner {
       size: 12,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    this.backend.queue.writeBuffer(
-      paramsBuffer,
-      0,
-      new Uint32Array([M, N, K]).buffer
-    );
+    this.backend.queue.writeBuffer(paramsBuffer, 0, new Uint32Array([M, N, K]).buffer);
 
     const bindGroup = this.backend.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
@@ -160,23 +141,14 @@ export class KernelRunner {
     paramsBuffer.destroy();
   }
 
-  async softmax(
-    input: GPUBuffer,
-    output: GPUBuffer,
-    rows: number,
-    cols: number
-  ): Promise<void> {
+  async softmax(input: GPUBuffer, output: GPUBuffer, rows: number, cols: number): Promise<void> {
     const pipeline = await this.getPipeline("softmax", SOFTMAX_SHADER);
 
     const paramsBuffer = this.backend.device.createBuffer({
       size: 8,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    this.backend.queue.writeBuffer(
-      paramsBuffer,
-      0,
-      new Uint32Array([rows, cols]).buffer
-    );
+    this.backend.queue.writeBuffer(paramsBuffer, 0, new Uint32Array([rows, cols]).buffer);
 
     const bindGroup = this.backend.device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),

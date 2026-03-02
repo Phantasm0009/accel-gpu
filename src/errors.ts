@@ -15,5 +15,7 @@ export function errMatmulShapes(op: string, aShape: string, bShape: string, reas
 }
 
 export function errInvalidShape(op: string, shape: number[], expectedElements: number): never {
-  throw new Error(`${op}: shape [${shape.join(", ")}] has ${shape.reduce((a, b) => a * b, 1)} elements, expected ${expectedElements}.`);
+  throw new Error(
+    `${op}: shape [${shape.join(", ")}] has ${shape.reduce((a, b) => a * b, 1)} elements, expected ${expectedElements}.`
+  );
 }

@@ -13,7 +13,12 @@ function inferMatmulShapes(a: GPUArray, b: GPUArray): { M: number; N: number; K:
 
   if (aShape.length === 1 && bShape.length === 1) {
     if (aShape[0] !== bShape[0]) {
-      errMatmulShapes("matmul", `[${aShape[0]}]`, `[${bShape[0]}]`, "vectors must have same length for dot product.");
+      errMatmulShapes(
+        "matmul",
+        `[${aShape[0]}]`,
+        `[${bShape[0]}]`,
+        "vectors must have same length for dot product."
+      );
     }
     return { M: 1, N: 1, K: aShape[0] };
   }
@@ -22,7 +27,12 @@ function inferMatmulShapes(a: GPUArray, b: GPUArray): { M: number; N: number; K:
     const [M, K] = aShape;
     const [K2, N] = bShape;
     if (K !== K2) {
-      errMatmulShapes("matmul", `${M}×${K}`, `${K2}×${N}`, `inner dimensions must match (${K} vs ${K2}).`);
+      errMatmulShapes(
+        "matmul",
+        `${M}×${K}`,
+        `${K2}×${N}`,
+        `inner dimensions must match (${K} vs ${K2}).`
+      );
     }
     return { M, N, K };
   }
@@ -31,7 +41,12 @@ function inferMatmulShapes(a: GPUArray, b: GPUArray): { M: number; N: number; K:
     const [M, K] = aShape;
     const [N] = bShape;
     if (K !== N) {
-      errMatmulShapes("matmul", `${M}×${K}`, `[${N}]`, `matrix columns (${K}) must match vector length (${N}).`);
+      errMatmulShapes(
+        "matmul",
+        `${M}×${K}`,
+        `[${N}]`,
+        `matrix columns (${K}) must match vector length (${N}).`
+      );
     }
     return { M, N: 1, K };
   }
@@ -40,7 +55,12 @@ function inferMatmulShapes(a: GPUArray, b: GPUArray): { M: number; N: number; K:
     const [K] = aShape;
     const [K2, N] = bShape;
     if (K !== K2) {
-      errMatmulShapes("matmul", `[${K}]`, `${K2}×${N}`, `vector length (${K}) must match matrix rows (${K2}).`);
+      errMatmulShapes(
+        "matmul",
+        `[${K}]`,
+        `${K2}×${N}`,
+        `vector length (${K}) must match matrix rows (${K2}).`
+      );
     }
     return { M: 1, N, K };
   }
@@ -49,9 +69,24 @@ function inferMatmulShapes(a: GPUArray, b: GPUArray): { M: number; N: number; K:
     return { M: 1, N: 1, K: aShape[0] };
   }
 
-  errMatmulShapes("matmul", `[${aShape.join(", ")}]`, `[${bShape.join(", ")}]`, "unsupported shape combination.");
+  errMatmulShapes(
+    "matmul",
+    `[${aShape.join(", ")}]`,
+    `[${bShape.join(", ")}]`,
+    "unsupported shape combination."
+  );
 }
 
+/**
+ * Matrix multiply.
+ * @param ctx - Accel context
+ * @param a - Left matrix (M×K)
+ * @param b - Right matrix (K×N)
+ * @param M - Optional explicit rows of A
+ * @param N - Optional explicit cols of B
+ * @param K - Optional explicit inner dimension
+ * @returns Promise resolving to the result matrix (M×N)
+ */
 export async function matmul(
   ctx: AccelContext,
   a: GPUArray,
@@ -77,14 +112,11 @@ export async function matmul(
   const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
   const outBuffer = ctx.backend.createBuffer(m * n * 4, usage);
 
-  await (ctx.runner as { matmul(a: unknown, b: unknown, o: unknown, M: number, N: number, K: number): Promise<void> }).matmul(
-    a.getBuffer(),
-    b.getBuffer(),
-    outBuffer,
-    m,
-    n,
-    k
-  );
+  await (
+    ctx.runner as {
+      matmul(a: unknown, b: unknown, o: unknown, M: number, N: number, K: number): Promise<void>;
+    }
+  ).matmul(a.getBuffer(), b.getBuffer(), outBuffer, m, n, k);
 
   const resultShape = m === 1 && n === 1 ? [1] : n === 1 ? [m] : [m, n];
   return new (await import("../array")).GPUArray(
@@ -100,6 +132,14 @@ export async function dot(ctx: AccelContext, a: GPUArray, b: GPUArray): Promise<
   return a.dot(b);
 }
 
+/**
+ * Transpose a matrix.
+ * @param ctx - Accel context
+ * @param a - Input matrix (rows×cols)
+ * @param rows - Optional explicit rows
+ * @param cols - Optional explicit cols
+ * @returns Promise resolving to transposed matrix (cols×rows)
+ */
 export async function transpose(
   ctx: AccelContext,
   a: GPUArray,

@@ -31,7 +31,14 @@ export class CPURunner {
     output.data[0] = max;
   }
 
-  async matmul(a: CPUBuffer, b: CPUBuffer, out: CPUBuffer, M: number, N: number, K: number): Promise<void> {
+  async matmul(
+    a: CPUBuffer,
+    b: CPUBuffer,
+    out: CPUBuffer,
+    M: number,
+    N: number,
+    K: number
+  ): Promise<void> {
     for (let i = 0; i < M; i++) {
       for (let j = 0; j < N; j++) {
         let sum = 0;
@@ -86,7 +93,13 @@ export class CPURunner {
     }
   }
 
-  async attentionScores(Q: CPUBuffer, K: CPUBuffer, output: CPUBuffer, seq: number, dim: number): Promise<void> {
+  async attentionScores(
+    Q: CPUBuffer,
+    K: CPUBuffer,
+    output: CPUBuffer,
+    seq: number,
+    dim: number
+  ): Promise<void> {
     const scale = 1 / Math.sqrt(dim);
     for (let i = 0; i < seq; i++) {
       for (let j = 0; j < seq; j++) {

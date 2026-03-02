@@ -71,7 +71,9 @@ export function createWebGLBackend(): WebGLBackend {
     createBuffer(size: number, _usage?: number): WebGLBuffer {
       const length = size / 4;
       const { width, height } = getTextureDimensions(length);
-      const reused = texturePool.find((b) => b.width === width && b.height === height && b.length >= length);
+      const reused = texturePool.find(
+        (b) => b.width === width && b.height === height && b.length >= length
+      );
       if (reused) {
         texturePool.splice(texturePool.indexOf(reused), 1);
         reused.length = length;
@@ -88,7 +90,17 @@ export function createWebGLBackend(): WebGLBackend {
       const padded = new Float32Array(width * height);
       padded.set(floats);
       gl.bindTexture(gl.TEXTURE_2D, buf.texture);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(padded.buffer));
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        width,
+        height,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        new Uint8Array(padded.buffer)
+      );
       gl.bindTexture(gl.TEXTURE_2D, null);
       return buf;
     },
@@ -98,14 +110,30 @@ export function createWebGLBackend(): WebGLBackend {
       const padded = new Float32Array(buffer.width * buffer.height);
       padded.set(floats);
       gl.bindTexture(gl.TEXTURE_2D, buffer.texture);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, buffer.width, buffer.height, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(padded.buffer));
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        buffer.width,
+        buffer.height,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        new Uint8Array(padded.buffer)
+      );
       gl.bindTexture(gl.TEXTURE_2D, null);
     },
 
     async readBuffer(buffer: WebGLBuffer, output: ArrayBuffer): Promise<void> {
       const fb = gl.createFramebuffer()!;
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, buffer.texture, 0);
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.COLOR_ATTACHMENT0,
+        gl.TEXTURE_2D,
+        buffer.texture,
+        0
+      );
       const pixels = new Uint8Array(buffer.width * buffer.height * 4);
       gl.readPixels(0, 0, buffer.width, buffer.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);

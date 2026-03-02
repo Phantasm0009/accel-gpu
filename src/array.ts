@@ -24,10 +24,12 @@ function isWebGL(backend: Backend): backend is WebGLBackend {
   return "type" in backend && backend.type === "webgl";
 }
 
-function isCPU(backend: Backend): backend is CPUBackend {
-  return "type" in backend && backend.type === "cpu";
-}
-
+/**
+ * GPU-backed (or CPU-backed) array with a NumPy-like API.
+ *
+ * Supports element-wise ops (add, mul), reductions (sum, max), dot product,
+ * and reshape. Data lives on the selected backend (WebGPU, WebGL2, or CPU).
+ */
 export class GPUArray {
   private backend: Backend;
   private runner: Runner;
@@ -36,13 +38,8 @@ export class GPUArray {
   readonly byteLength: number;
   private _shape: number[];
 
-  constructor(
-    backend: Backend,
-    runner: Runner,
-    buffer: Buffer,
-    length: number,
-    shape?: number[]
-  ) {
+  /** @internal */
+  constructor(backend: Backend, runner: Runner, buffer: Buffer, length: number, shape?: number[]) {
     this.backend = backend;
     this.runner = runner;
     this.buffer = buffer;
@@ -51,10 +48,16 @@ export class GPUArray {
     this._shape = shape ?? [length];
   }
 
+  /** Current shape of the array (e.g. [2, 3] for a 2×3 matrix). */
   get shape(): number[] {
     return [...this._shape];
   }
 
+  /**
+   * Reshape the array in-place. Total elements must remain the same.
+   * @param dims - New dimensions (e.g. 2, 3 for a 2×3 matrix)
+   * @returns this for chaining
+   */
   reshape(...dims: number[]): GPUArray {
     const total = dims.reduce((a, b) => a * b, 1);
     if (total !== this.length) {
@@ -66,12 +69,19 @@ export class GPUArray {
     return this;
   }
 
+  /**
+   * Copy data from the backend to a Float32Array.
+   * @returns Promise resolving to the array data
+   */
   async toArray(): Promise<Float32Array> {
     const result = new Float32Array(this.length);
     if (isWebGPU(this.backend)) {
       await this.backend.readBuffer(this.buffer as GPUBuffer, result.buffer);
     } else if (isWebGL(this.backend)) {
-      await this.backend.readBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer, result.buffer);
+      await this.backend.readBuffer(
+        this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+        result.buffer
+      );
     } else {
       (this.backend as CPUBackend).readBuffer(this.buffer as { data: Float32Array }, result.buffer);
     }
@@ -87,7 +97,12 @@ export class GPUArray {
       const scalarData = new Float32Array(this.length).fill(other);
       const scalarBuf = webglBackend.createBufferFromData(scalarData.buffer as ArrayBuffer, usage);
       const out = webglBackend.createBuffer(this.byteLength, usage);
-      await webglRunner.add(this.buffer as import("./backend/webgl-backend").WebGLBuffer, scalarBuf, out, this.length);
+      await webglRunner.add(
+        this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+        scalarBuf,
+        out,
+        this.length
+      );
       webglBackend.destroyBuffer(scalarBuf);
       webglBackend.destroyBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer);
       this.buffer = out;
@@ -105,6 +120,11 @@ export class GPUArray {
     return this;
   }
 
+  /**
+   * Element-wise add. Mutates this array in-place.
+   * @param other - Another GPUArray of same length, or a scalar number
+   * @returns Promise resolving to this (for chaining)
+   */
   async add(other: GPUArray | number): Promise<GPUArray> {
     if (typeof other !== "number" && other.length !== this.length) {
       errLengthMismatch("add", this.length, other.length);
@@ -123,14 +143,24 @@ export class GPUArray {
           this.byteLength,
           GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
         );
-        await (this.runner as KernelRunner).add(this.buffer as GPUBuffer, scalarBuf, out, this.length);
+        await (this.runner as KernelRunner).add(
+          this.buffer as GPUBuffer,
+          scalarBuf,
+          out,
+          this.length
+        );
         this.backend.destroyBuffer(scalarBuf);
         this.backend.destroyBuffer(this.buffer as GPUBuffer);
         this.buffer = out;
       } else {
         const cpuRunner = this.runner as CPURunner;
         const out = (this.backend as CPUBackend).createBuffer(this.byteLength);
-        await cpuRunner.add(this.buffer as { data: Float32Array }, { data: scalarData }, out, this.length);
+        await cpuRunner.add(
+          this.buffer as { data: Float32Array },
+          { data: scalarData },
+          out,
+          this.length
+        );
         (this.backend as CPUBackend).destroyBuffer(this.buffer as { data: Float32Array });
         this.buffer = out;
       }
@@ -164,6 +194,11 @@ export class GPUArray {
     return this;
   }
 
+  /**
+   * Element-wise multiply. Mutates this array in-place.
+   * @param other - Another GPUArray of same length, or a scalar number
+   * @returns Promise resolving to this (for chaining)
+   */
   async mul(other: GPUArray | number): Promise<GPUArray> {
     if (typeof other !== "number" && other.length !== this.length) {
       errLengthMismatch("mul", this.length, other.length);
@@ -175,7 +210,12 @@ export class GPUArray {
       const usage = 0;
       const out = webglBackend.createBuffer(this.byteLength, usage);
       if (typeof other === "number") {
-        await webglRunner.mulScalar(this.buffer as import("./backend/webgl-backend").WebGLBuffer, other, out, this.length);
+        await webglRunner.mulScalar(
+          this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+          other,
+          out,
+          this.length
+        );
       } else {
         await webglRunner.mul(
           this.buffer as import("./backend/webgl-backend").WebGLBuffer,
@@ -244,6 +284,10 @@ export class GPUArray {
     return this;
   }
 
+  /**
+   * Reduce sum over all elements.
+   * @returns Promise resolving to the scalar sum
+   */
   async sum(): Promise<number> {
     if (this.length === 0) return 0;
     if (this.length === 1) {
@@ -251,9 +295,15 @@ export class GPUArray {
       if (isWebGPU(this.backend)) {
         await this.backend.readBuffer(this.buffer as GPUBuffer, result.buffer);
       } else if (isWebGL(this.backend)) {
-        await this.backend.readBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer, result.buffer);
+        await this.backend.readBuffer(
+          this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+          result.buffer
+        );
       } else {
-        (this.backend as CPUBackend).readBuffer(this.buffer as { data: Float32Array }, result.buffer);
+        (this.backend as CPUBackend).readBuffer(
+          this.buffer as { data: Float32Array },
+          result.buffer
+        );
       }
       return result[0];
     }
@@ -304,6 +354,10 @@ export class GPUArray {
     }
   }
 
+  /**
+   * Reduce max over all elements.
+   * @returns Promise resolving to the maximum value
+   */
   async max(): Promise<number> {
     if (this.length === 0) return -Infinity;
     if (this.length === 1) {
@@ -311,9 +365,15 @@ export class GPUArray {
       if (isWebGPU(this.backend)) {
         await this.backend.readBuffer(this.buffer as GPUBuffer, result.buffer);
       } else if (isWebGL(this.backend)) {
-        await this.backend.readBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer, result.buffer);
+        await this.backend.readBuffer(
+          this.buffer as import("./backend/webgl-backend").WebGLBuffer,
+          result.buffer
+        );
       } else {
-        (this.backend as CPUBackend).readBuffer(this.buffer as { data: Float32Array }, result.buffer);
+        (this.backend as CPUBackend).readBuffer(
+          this.buffer as { data: Float32Array },
+          result.buffer
+        );
       }
       return result[0];
     }
@@ -364,6 +424,11 @@ export class GPUArray {
     }
   }
 
+  /**
+   * Dot product with another vector of the same length.
+   * @param other - GPUArray of same length
+   * @returns Promise resolving to the dot product scalar
+   */
   async dot(other: GPUArray): Promise<number> {
     if (other.length !== this.length) errLengthMismatch("dot", this.length, other.length);
 

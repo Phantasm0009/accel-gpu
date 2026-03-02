@@ -25,21 +25,38 @@ import type { CPUBackend } from "./backend/cpu-backend";
 export { GPUArray } from "./array";
 export type { AccelContext } from "./types";
 
+/**
+ * Options for initializing the Accel GPU context.
+ */
 export interface InitOptions {
-  /** Prefer CPU backend (e.g. for testing) */
+  /** Prefer CPU backend (e.g. for testing or headless environments) */
   forceCPU?: boolean;
-  /** Prefer WebGL2 backend (e.g. when WebGPU unavailable) */
+  /** Prefer WebGL2 backend (e.g. when WebGPU is unavailable) */
   forceWebGL?: boolean;
-  /** Run in a Web Worker (future use) */
+  /** Run in a Web Worker (reserved for future use) */
   worker?: boolean;
 }
 
 /**
- * Initialize the Accel GPU context. Uses WebGPU -> WebGL -> CPU fallback.
+ * Initialize the Accel GPU context.
+ *
+ * Automatically selects the best available backend in order: WebGPU → WebGL2 → CPU.
+ * Use `forceCPU` or `forceWebGL` to override for testing or compatibility.
+ *
+ * @param options - Optional initialization options
+ * @returns Promise resolving to the Accel context with `array`, `fromImageData`, `toCanvas`, and backend info
+ * @example
+ * ```ts
+ * const gpu = await init();
+ * const arr = gpu.array([1, 2, 3]);
+ * ```
  */
 export async function init(options?: InitOptions): Promise<AccelContext> {
   let backend: WebGPUBackend | WebGLBackend | CPUBackend;
-  let runner: import("./backend/kernel-runner").KernelRunner | import("./backend/webgl-runner").WebGLRunner | import("./backend/cpu-runner").CPURunner;
+  let runner:
+    | import("./backend/kernel-runner").KernelRunner
+    | import("./backend/webgl-runner").WebGLRunner
+    | import("./backend/cpu-runner").CPURunner;
   let backendType: "webgpu" | "webgl" | "cpu";
 
   if (options?.forceCPU) {

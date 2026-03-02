@@ -4,6 +4,22 @@ All notable changes to accel-gpu will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.5] - 2025-03-01
+
+### Added
+
+- **JSDoc** — Full documentation for public API (`init`, `InitOptions`, `AccelContext`, `GPUArray`, and all ops)
+- **ESLint + Prettier** — Lint and format scripts; consistent code style
+- **Vitest** — Test suite replacing `scripts/test.mjs`; `npm test` runs Vitest
+- **Dependabot** — Weekly dependency updates for npm and GitHub Actions
+- **Bundlephobia badge** — Package size badge in README
+- **Package icon** — `icon.png` for docs and README
+
+### Changed
+
+- ESLint flat config (no `--ext`); Prettier formats all `src/**/*.ts`
+- README includes icon and Bundlephobia badge; favicon in docs
+
 ## [0.2.0] - 2025-03-01
 
 ### Added

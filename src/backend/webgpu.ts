@@ -108,10 +108,7 @@ export async function createWebGPUBackend(): Promise<WebGPUBackend> {
       }
     },
 
-    async createComputePipeline(
-      shader: string,
-      entryPoint: string
-    ): Promise<GPUComputePipeline> {
+    async createComputePipeline(shader: string, entryPoint: string): Promise<GPUComputePipeline> {
       const module = device.createShaderModule({ code: shader });
       return device.createComputePipeline({
         layout: "auto",

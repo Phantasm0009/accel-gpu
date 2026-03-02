@@ -49,7 +49,13 @@ function runFragmentShader(
 ): void {
   const fb = gl.createFramebuffer()!;
   gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outBuffer.texture, 0);
+  gl.framebufferTexture2D(
+    gl.FRAMEBUFFER,
+    gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D,
+    outBuffer.texture,
+    0
+  );
   gl.viewport(0, 0, outBuffer.width, outBuffer.height);
   gl.useProgram(prog);
   setup(gl, prog);
