@@ -4,28 +4,94 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>accel-gpu Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #0d1117;
+      --bg-elevated: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --error: #f85149;
+    }
     * { box-sizing: border-box; }
-    body { font-family: "JetBrains Mono", monospace; margin: 0; padding: 1rem; background: #1e1e1e; color: #d4d4d4; }
-    .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
-    h1 { color: #4ec9b0; margin-top: 0; }
-    textarea { width: 100%; height: 300px; padding: 1rem; background: #252526; border: 1px solid #3c3c3c; color: #d4d4d4; font-family: inherit; font-size: 14px; border-radius: 4px; resize: vertical; }
-    pre { background: #252526; padding: 1rem; border-radius: 4px; overflow: auto; max-height: 300px; margin: 0; }
-    button { padding: 0.5rem 1rem; background: #0e639c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-    button:hover { background: #1177bb; }
+    body {
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      margin: 0;
+      padding: 2rem 1.5rem;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    .back { margin-bottom: 1rem; }
+    .back a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; }
+    .back a:hover { color: var(--accent); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem; font-weight: 600; }
+    .sub { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    .panel label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+    textarea {
+      width: 100%;
+      height: 320px;
+      padding: 1rem 1.25rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.8125rem;
+      border-radius: 8px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
+    pre {
+      width: 100%;
+      height: 320px;
+      margin: 0;
+      padding: 1rem 1.25rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.8125rem;
+      line-height: 1.6;
+    }
+    button {
+      padding: 0.5rem 1.25rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 0.75rem;
+    }
+    button:hover { background: #388bfd; }
     .output { color: #9cdcfe; }
-    .error { color: #f48771; }
-    label { display: block; margin-bottom: 0.5rem; color: #808080; }
+    .error { color: var(--error); }
   </style>
 </head>
 <body>
-  <h1>accel-gpu Playground</h1>
-  <p>Edit the code and click Run. Uses live ESM from dist.</p>
-  <div class="container">
-    <div>
-      <label>Code</label>
-      <textarea id="code">const gpu = await init();
+  <div class="wrap">
+    <div class="back"><a href="../">← accel-gpu</a></div>
+    <h1>Playground</h1>
+    <p class="sub">Edit the code and click Run. Available: init, matmul, softmax, layerNorm, dot, transpose</p>
+    <div class="grid">
+      <div class="panel">
+        <label>Code</label>
+        <textarea id="code">const gpu = await init();
 const a = gpu.array([1, 2, 3, 4]);
 const b = gpu.array([5, 6, 7, 8]);
 await a.add(b);
@@ -37,20 +103,21 @@ const B = gpu.array(new Float32Array([1,2,3,4,5,6]), [3, 2]);
 const C = await matmul(gpu, A, B);
 console.log("matmul:", await C.toArray());
 
-// Method chaining (await each step — add/mul return Promises)
+// Method chaining
 const x = gpu.array([1, 2, 3, 4]);
 await (await x.add(1)).mul(2);
 console.log("chain:", await x.toArray());</textarea>
-      <button id="run">Run</button>
-    </div>
-    <div>
-      <label>Output</label>
-      <pre id="output">Click Run to execute.</pre>
+        <button id="run">Run</button>
+      </div>
+      <div class="panel">
+        <label>Output</label>
+        <pre id="output">Click Run to execute.</pre>
+      </div>
     </div>
   </div>
 
   <script type="module">
-    import { init, matmul, softmax, layerNorm } from "../dist/index.js";
+    import { init, matmul, softmax, layerNorm, dot, transpose } from "../dist/index.js";
 
     const codeEl = document.getElementById("code");
     const outputEl = document.getElementById("output");
@@ -65,13 +132,13 @@ console.log("chain:", await x.toArray());</textarea>
 
     runBtn.onclick = async () => {
       logs.length = 0;
-      outputEl.innerHTML = "";
+      outputEl.textContent = "";
       outputEl.classList.remove("error");
 
       try {
         const AsyncFunction = (async function () {}).constructor;
-        const fn = new AsyncFunction("init", "matmul", "softmax", "layerNorm", codeEl.value);
-        await fn(init, matmul, softmax, layerNorm);
+        const fn = new AsyncFunction("init", "matmul", "softmax", "layerNorm", "dot", "transpose", codeEl.value);
+        await fn(init, matmul, softmax, layerNorm, dot, transpose);
         outputEl.textContent = logs.length ? logs.join("\n") : "No output.";
         outputEl.classList.add("output");
       } catch (e) {

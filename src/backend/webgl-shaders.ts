@@ -39,7 +39,7 @@ uniform vec2 u_texSize;
 uniform float u_length;
 out vec4 fragColor;
 void main() {
-  float idx = gl_FragCoord.y * u_texSize.x + gl_FragCoord.x;
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
   if (idx >= u_length) {
     fragColor = packFloat(0.0);
     return;
@@ -59,7 +59,7 @@ uniform vec2 u_texSize;
 uniform float u_length;
 out vec4 fragColor;
 void main() {
-  float idx = gl_FragCoord.y * u_texSize.x + gl_FragCoord.x;
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
   if (idx >= u_length) {
     fragColor = packFloat(0.0);
     return;
@@ -79,7 +79,7 @@ uniform vec2 u_texSize;
 uniform float u_length;
 out vec4 fragColor;
 void main() {
-  float idx = gl_FragCoord.y * u_texSize.x + gl_FragCoord.x;
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
   if (idx >= u_length) {
     fragColor = packFloat(0.0);
     return;
@@ -98,7 +98,7 @@ uniform vec2 u_outputTexSize;
 uniform float u_length;
 out vec4 fragColor;
 void main() {
-  float outIdx = gl_FragCoord.y * u_outputTexSize.x + gl_FragCoord.x;
+  float outIdx = floor(gl_FragCoord.y) * u_outputTexSize.x + floor(gl_FragCoord.x);
   if (outIdx * 2.0 >= u_length) {
     fragColor = packFloat(0.0);
     return;
@@ -120,29 +120,30 @@ void main() {
 
 export const REDUCE_MAX_FRAGMENT = `#version 300 es
 precision highp float;
+${PACK_UNPACK}
 uniform sampler2D u_input;
 uniform vec2 u_inputTexSize;
 uniform vec2 u_outputTexSize;
 uniform float u_length;
-out float outValue;
+out vec4 fragColor;
 void main() {
-  float outIdx = gl_FragCoord.y * u_outputTexSize.x + gl_FragCoord.x;
+  float outIdx = floor(gl_FragCoord.y) * u_outputTexSize.x + floor(gl_FragCoord.x);
   if (outIdx * 2.0 >= u_length) {
-    outValue = -1e38;
+    fragColor = packFloat(-1e38);
     return;
   }
   float inIdx0 = outIdx * 2.0;
   float inIdx1 = outIdx * 2.0 + 1.0;
   int x0 = int(mod(inIdx0, u_inputTexSize.x));
   int y0 = int(floor(inIdx0 / u_inputTexSize.x));
-  float a = texelFetch(u_input, ivec2(x0, y0), 0).r;
+  float a = unpackFloat(texelFetch(u_input, ivec2(x0, y0), 0));
   float b = -1e38;
   if (inIdx1 < u_length) {
     int x1 = int(mod(inIdx1, u_inputTexSize.x));
     int y1 = int(floor(inIdx1 / u_inputTexSize.x));
-    b = texelFetch(u_input, ivec2(x1, y1), 0).r;
+    b = unpackFloat(texelFetch(u_input, ivec2(x1, y1), 0));
   }
-  outValue = max(a, b);
+  fragColor = packFloat(max(a, b));
 }
 `;
 
@@ -159,7 +160,7 @@ void main() {
   float M = u_params.x;
   float N = u_params.y;
   float K = u_params.z;
-  float i = gl_FragCoord.y * u_texSizeB.x + gl_FragCoord.x;
+  float i = floor(gl_FragCoord.y) * u_texSizeB.x + floor(gl_FragCoord.x);
   int row = int(floor(i / N));
   int col = int(mod(i, N));
   if (row >= int(M) || col >= int(N)) {
@@ -191,7 +192,7 @@ out vec4 fragColor;
 void main() {
   float rows = u_params.x;
   float cols = u_params.y;
-  float idx = gl_FragCoord.y * u_texSize.x + gl_FragCoord.x;
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
   if (idx >= rows * cols) {
     fragColor = packFloat(0.0);
     return;
@@ -232,7 +233,7 @@ out vec4 fragColor;
 void main() {
   float rows = u_params.x;
   float cols = u_params.y;
-  float idx = gl_FragCoord.y * u_texSize.x + gl_FragCoord.x;
+  float idx = floor(gl_FragCoord.y) * u_texSize.x + floor(gl_FragCoord.x);
   if (idx >= rows * cols) {
     fragColor = packFloat(0.0);
     return;
@@ -281,7 +282,7 @@ void main() {
   float seq = u_params.x;
   float dim = u_params.y;
   float scale = 1.0 / sqrt(dim);
-  float idx = gl_FragCoord.y * u_texSizeK.x + gl_FragCoord.x;
+  float idx = floor(gl_FragCoord.y) * u_texSizeK.x + floor(gl_FragCoord.x);
   if (idx >= seq * seq) {
     fragColor = packFloat(0.0);
     return;

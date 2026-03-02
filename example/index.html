@@ -1,46 +1,129 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>accel-gpu Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg-elevated: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --success: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      margin: 0;
+      padding: 2rem 1.5rem;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.5rem; font-weight: 600; }
+    .back { margin-bottom: 1.5rem; }
+    .back a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; }
+    .back a:hover { color: var(--accent); }
+    .output {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.8125rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      min-height: 200px;
+      line-height: 1.7;
+    }
+    .output.success { border-color: rgba(63, 185, 80, 0.3); }
+    .output.error { border-color: rgba(248, 81, 73, 0.4); color: #f85149; }
+    .status { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+  </style>
 </head>
 <body>
-  <h1>accel-gpu Demo</h1>
-  <pre id="output">Loading...</pre>
+  <div class="wrap">
+    <div class="back"><a href="../">← accel-gpu</a></div>
+    <h1>Demo</h1>
+    <p class="status">Running examples…</p>
+    <pre id="output" class="output">Loading...</pre>
+  </div>
 
   <script type="module">
-    import { init, matmul, softmax } from "../dist/index.js";
+    import { init, matmul, softmax, transpose, dot, layerNorm } from "../dist/index.js";
 
     async function run() {
       const output = document.getElementById("output");
+      const status = document.querySelector(".status");
       try {
         const gpu = await init();
-        output.textContent = `Backend: ${gpu.backendType}\n\n`;
+        status.textContent = `Backend: ${gpu.backendType}`;
+        const lines = [];
 
         // Add
         const a = gpu.array(new Float32Array([1, 2, 3, 4]));
         const b = gpu.array(new Float32Array([5, 6, 7, 8]));
         await a.add(b);
-        output.textContent += `Add: [1,2,3,4] + [5,6,7,8] = ${await a.toArray()}\n`;
+        lines.push(`Add: [1,2,3,4] + [5,6,7,8] = ${Array.from(await a.toArray()).join(", ")}`);
+
+        // Mul
+        const m1 = gpu.array(new Float32Array([2, 4, 6, 8]));
+        await m1.mul(2);
+        lines.push(`Mul: [2,4,6,8] * 2 = ${Array.from(await m1.toArray()).join(", ")}`);
 
         // Sum
         const sum = await gpu.array(new Float32Array([1, 2, 3, 4])).sum();
-        output.textContent += `Sum: [1,2,3,4] = ${sum}\n`;
+        lines.push(`Sum: [1,2,3,4] = ${sum}`);
 
-        // Matmul (shape inference)
+        // Max
+        const maxVal = await gpu.array(new Float32Array([1, 5, 3, 2])).max();
+        lines.push(`Max: [1,5,3,2] = ${maxVal}`);
+
+        // Dot
+        const v1 = gpu.array(new Float32Array([1, 2, 3]));
+        const v2 = gpu.array(new Float32Array([4, 5, 6]));
+        const dotVal = await v1.dot(v2);
+        lines.push(`Dot: [1,2,3] · [4,5,6] = ${dotVal}`);
+
+        // Matmul
         const A = gpu.array(new Float32Array([1, 2, 3, 4, 5, 6]), [2, 3]);
         const B = gpu.array(new Float32Array([1, 2, 3, 4, 5, 6]), [3, 2]);
         const C = await matmul(gpu, A, B);
-        output.textContent += `Matmul (2x3 @ 3x2) = ${await C.toArray()}\n`;
+        lines.push(`Matmul (2×3 @ 3×2) = [${Array.from(await C.toArray()).join(", ")}]`);
 
-        // Softmax (shape inference)
+        // Transpose
+        const T = gpu.array(new Float32Array([1, 2, 3, 4, 5, 6]), [2, 3]);
+        const Tt = await transpose(gpu, T, 2, 3);
+        lines.push(`Transpose 2×3 = [${Array.from(await Tt.toArray()).join(", ")}]`);
+
+        // Softmax
         const logits = gpu.array(new Float32Array([1, 2, 3, 4]));
         const probs = await softmax(gpu, logits);
-        output.textContent += `Softmax([1,2,3,4]) = ${(await probs.toArray()).map(x => x.toFixed(4)).join(", ")}\n`;
+        const probsArr = await probs.toArray();
+        lines.push(`Softmax([1,2,3,4]) = [${probsArr.map(x => x.toFixed(4)).join(", ")}]`);
+        lines.push(`  (sum = ${probsArr.reduce((a, b) => a + b, 0).toFixed(4)})`);
 
-        output.textContent += "\nAll tests passed!";
+        // Layer norm
+        const lnInput = gpu.array(new Float32Array([1, 2, 3, 4, 5, 6]), [2, 3]);
+        const gamma = gpu.array(new Float32Array([1, 1, 1]));
+        const beta = gpu.array(new Float32Array([0, 0, 0]));
+        const lnOut = await layerNorm(gpu, lnInput, gamma, beta, 2, 3);
+        lines.push(`LayerNorm (2×3) = [${(await lnOut.toArray()).map(x => x.toFixed(3)).join(", ")}]`);
+
+        lines.push("");
+        lines.push("All examples passed ✓");
+        output.textContent = lines.join("\n");
+        output.classList.add("success");
       } catch (err) {
         output.textContent = "Error: " + err.message + "\n\n" + err.stack;
+        output.classList.add("error");
       }
     }
     run();

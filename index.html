@@ -4,38 +4,156 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>accel-gpu — NumPy for the browser GPU</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #0d1117;
+      --bg-elevated: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-dim: #388bfd;
+      --success: #3fb950;
+      --code-bg: #0d1117;
+    }
     * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #24292f; line-height: 1.6; }
-    .wrap { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
-    h1 { font-size: 2rem; margin: 0 0 0.5rem; color: #0969da; }
-    .tagline { font-size: 1.1rem; color: #57606a; margin-bottom: 2rem; }
-    .nav { display: flex; gap: 0.75rem; margin-bottom: 2rem; flex-wrap: wrap; }
-    .nav a { padding: 0.5rem 1rem; background: #0969da; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; }
-    .nav a:hover { background: #0550ae; }
-    .nav a.secondary { background: #656d76; }
-    .nav a.secondary:hover { background: #4c535b; }
-    h2 { font-size: 1.25rem; margin: 2rem 0 1rem; color: #1f2328; border-bottom: 1px solid #d0d7de; padding-bottom: 0.5rem; }
-    pre { background: #f6f8fa; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.875rem; border: 1px solid #d0d7de; }
-    code { font-family: ui-monospace, monospace; }
-    p { color: #57606a; margin: 0 0 1rem; }
-    .links { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #d0d7de; }
-    .links a { color: #0969da; text-decoration: none; }
-    .links a:hover { text-decoration: underline; }
-    ul { color: #57606a; margin: 0.5rem 0; padding-left: 1.5rem; }
+    body {
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 3rem 1.5rem; }
+    .hero {
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero h1 {
+      font-size: 2.25rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    .hero .tagline {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+    .badge {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+    }
+    .nav {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+    }
+    .nav a {
+      padding: 0.5rem 1rem;
+      background: var(--bg-elevated);
+      color: var(--text);
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.9rem;
+      border: 1px solid var(--border);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .nav a:hover {
+      background: #21262d;
+      border-color: var(--text-muted);
+    }
+    .nav a.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .nav a.primary:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+    h2 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin: 2.5rem 0 1rem;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    h2:first-of-type { margin-top: 0; }
+    p { color: var(--text-muted); margin: 0 0 1rem; }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.8125rem;
+      border: 1px solid var(--border);
+      margin: 0.5rem 0 1.5rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      line-height: 1.6;
+    }
+    pre code { color: #e6edf3; }
+    .code-block { position: relative; }
+    .code-block .lang { position: absolute; top: 0.5rem; right: 0.75rem; font-size: 0.7rem; color: var(--text-muted); }
+    ul {
+      color: var(--text-muted);
+      margin: 0.5rem 0 1.5rem;
+      padding-left: 1.5rem;
+    }
+    ul li { margin-bottom: 0.35rem; }
+    ul li strong { color: var(--text); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+    .card h3 { font-size: 0.9rem; margin: 0 0 0.5rem; font-weight: 500; }
+    .card p { font-size: 0.8125rem; margin: 0; color: var(--text-muted); }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>accel-gpu</h1>
-    <p class="tagline">NumPy for the browser GPU — zero shaders, zero dependencies.</p>
+    <header class="hero">
+      <h1>accel-gpu</h1>
+      <p class="tagline">NumPy for the browser GPU — zero shaders, zero dependencies.</p>
+      <span class="badge">WebGPU · WebGL2 · CPU fallback</span>
+    </header>
 
-    <div class="nav">
-      <a href="example/">Demo</a>
+    <nav class="nav">
+      <a href="example/" class="primary">Demo</a>
       <a href="benchmark/">Benchmarks</a>
       <a href="playground/">Playground</a>
-      <a href="https://github.com/Phantasm0009/accel-gpu" class="secondary" target="_blank" rel="noopener">GitHub</a>
-    </div>
+      <a href="https://github.com/Phantasm0009/accel-gpu" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.npmjs.com/package/accel-gpu" target="_blank" rel="noopener">npm</a>
+    </nav>
 
     <h2>Install</h2>
     <pre><code>npm install accel-gpu</code></pre>
@@ -49,32 +167,50 @@ const b = gpu.array([5, 6, 7, 8]);
 await a.add(b);
 console.log(await a.toArray()); // [6, 8, 10, 12]</code></pre>
 
-    <h2>Shape Inference</h2>
-    <p>No need to pass M, N, K — inferred from array shapes.</p>
+    <h2>Features</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Shape inference</h3>
+        <p>No M, N, K — inferred from array shapes</p>
+      </div>
+      <div class="card">
+        <h3>Method chaining</h3>
+        <p>add, mul return Promises for chaining</p>
+      </div>
+      <div class="card">
+        <h3>ML primitives</h3>
+        <p>softmax, layerNorm, attentionScores</p>
+      </div>
+      <div class="card">
+        <h3>Universal</h3>
+        <p>Safari, Firefox, Node, headless</p>
+      </div>
+    </div>
+
+    <h2>Shape inference</h2>
     <pre><code>const A = gpu.array(new Float32Array([1,2,3,4,5,6]), [2, 3]);
 const B = gpu.array(new Float32Array([1,2,3,4,5,6]), [3, 2]);
 const C = await matmul(gpu, A, B);</code></pre>
 
-    <h2>Method Chaining</h2>
+    <h2>Method chaining</h2>
     <p>Await each step — add/mul return Promises.</p>
     <pre><code>const x = gpu.array([1, 2, 3, 4]);
 await (await x.add(1)).mul(2);
-console.log(await x.toArray());</code></pre>
+console.log(await x.toArray()); // [4, 6, 8, 10]</code></pre>
 
-    <h2>ML Primitives</h2>
+    <h2>ML primitives</h2>
     <pre><code>const probs = await softmax(gpu, logits);
 const normed = await layerNorm(gpu, x, gamma, beta);
 const scores = await attentionScores(gpu, Q, K);</code></pre>
 
-    <h2>Fallback Chain</h2>
-    <p>WebGPU → WebGL2 → CPU. Works in Safari, Firefox, Node, headless, and older browsers.</p>
+    <h2>Fallback chain</h2>
     <ul>
-      <li><strong>WebGPU</strong> — Chrome 113+, Edge 113+</li>
+      <li><strong>WebGPU</strong> — Chrome 113+, Edge 113+ (best)</li>
       <li><strong>WebGL2</strong> — Safari, Firefox, older Chrome</li>
       <li><strong>CPU</strong> — Node, headless, no GPU</li>
     </ul>
 
-    <div class="links">
+    <div class="footer">
       <a href="https://github.com/Phantasm0009/accel-gpu">Repository</a> ·
       <a href="https://www.npmjs.com/package/accel-gpu">npm</a>
     </div>
