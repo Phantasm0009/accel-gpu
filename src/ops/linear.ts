@@ -112,6 +112,9 @@ export async function matmul(
   const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
   const outBuffer = ctx.backend.createBuffer(m * n * 4, usage);
 
+  await a.materialize();
+  await b.materialize();
+
   await (
     ctx.runner as {
       matmul(a: unknown, b: unknown, o: unknown, M: number, N: number, K: number): Promise<void>;

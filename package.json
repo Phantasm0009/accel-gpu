@@ -1,6 +1,6 @@
 {
   "name": "accel-gpu",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "NumPy for the browser GPU — zero shaders, zero dependencies",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -20,6 +20,8 @@
   "keywords": [
     "webgpu",
     "webgl",
+    "wasm",
+    "webworker",
     "gpu",
     "compute",
     "numpy",

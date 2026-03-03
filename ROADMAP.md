@@ -51,34 +51,35 @@
 - `sum(axis?)`, `mean(axis?)`, `max(axis?)` — reduce along axis
 
 ### Matrix Ops
-- `inv()`, `det()`, `solve(b)`, `qr()`, `svd()` — CPU implementation
+- `inv()`, `det()`, `solve(b)`, `qr()`, `svd()` — WebGPU iterative paths for `inv/qr/svd` + CPU fallback
 
 ### ML
-- `maxPool2d`, `avgPool2d`, `conv2d(kernel, stride?, padding?)`
+- `maxPool2d`, `avgPool2d`, `conv2d(kernel, stride?, padding?)` — WebGPU kernels + CPU/WebGL fallback
 - `batchNorm`, `normalize(axis?)`
 
 ### FFT & Signal
-- `fft()`, `ifft()`, `fftMagnitude()`, `spectrogram()` — complex support, butterfly FFT
+- `fft()`, `ifft()`, `fftMagnitude()`, `spectrogram()` — WebGPU kernels for FFT/IFFT/magnitude + CPU fallback
 
 ### DX
 - `enableProfiling()`, `recordOp()`, `getProfilingResults()`
+
+### Backend & Performance
+- WebAssembly CPU backend path via `init({ forceCPU: true, preferWasmCPU: true, wasmModule })` *(experimental)*
+- Web Worker CPU execution via `init({ forceCPU: true, worker: true })` *(experimental)*
+
+### Optimization
+- Automatic scalar-chain fusion for `add/sub/mul/div` (affine fusion before materialization)
+
+### Training
+- Numerical gradient computation utilities for training: `gradients(...)`
+- SGD update utility: `sgdStep(...)`
+
+### Memory Management
+- `FinalizationRegistry` best-effort cleanup for leaked arrays
+- Scoped API: `gpu.scoped(fn)` deterministic disposal on scope exit
 
 ---
 
 ## Planned
 
-### Backend & Performance
-- WebAssembly CPU backend for better Node.js performance
-- Web Worker support for parallel execution
-- GPU-accelerated FFT, conv2d, pooling
-- GPU matrix ops (inv, qr, svd)
-
-### Optimization
-- Automatic kernel fusion optimization
-
-### Training
-- Gradient computation (autograd) for training
-
-### Memory Management
-- FinalizationRegistry for best-effort auto-cleanup when arrays are GC'd
-- Scoped API (`gpu.scoped(fn)`) for deterministic dispose on scope exit
+- No active roadmap items at the moment.

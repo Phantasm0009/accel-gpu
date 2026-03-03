@@ -542,3 +542,223 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   output[i * seq + j] = score * scale;
 }
 `;
+
+export const CONV2D_SHADER = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read> kernel: array<f32>;
+@group(0) @binding(2) var<storage, read_write> output: array<f32>;
+@group(0) @binding(3) var<uniform> params: array<u32, 12>;
+
+@compute @workgroup_size(4, 4, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let n = params[0];
+  let H = params[1];
+  let W = params[2];
+  let C_in = params[3];
+  let kH = params[4];
+  let kW = params[5];
+  let C_out = params[6];
+  let outH = params[7];
+  let outW = params[8];
+  let stride = params[9];
+  let padding = params[10];
+
+  let ox = gid.x;
+  let oy = gid.y;
+  let nz = gid.z;
+  let ni = nz / C_out;
+  let co = nz % C_out;
+
+  if (ni >= n || oy >= outH || ox >= outW || co >= C_out) {
+    return;
+  }
+
+  var sum = 0.0;
+  for (var ky = 0u; ky < kH; ky++) {
+    for (var kx = 0u; kx < kW; kx++) {
+      let iy = i32(oy * stride + ky) - i32(padding);
+      let ix = i32(ox * stride + kx) - i32(padding);
+      if (iy >= 0 && iy < i32(H) && ix >= 0 && ix < i32(W)) {
+        for (var ci = 0u; ci < C_in; ci++) {
+          let inIdx = ni * H * W * C_in + u32(iy) * W * C_in + u32(ix) * C_in + ci;
+          let kIdx = ky * kW * C_in * C_out + kx * C_in * C_out + ci * C_out + co;
+          sum += input[inIdx] * kernel[kIdx];
+        }
+      }
+    }
+  }
+
+  let outIdx = ni * outH * outW * C_out + oy * outW * C_out + ox * C_out + co;
+  output[outIdx] = sum;
+}
+`;
+
+export const MAX_POOL2D_SHADER = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@group(0) @binding(2) var<uniform> params: array<u32, 10>;
+
+@compute @workgroup_size(4, 4, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let n = params[0];
+  let H = params[1];
+  let W = params[2];
+  let C = params[3];
+  let kernelSize = params[4];
+  let stride = params[5];
+  let padding = params[6];
+  let outH = params[7];
+  let outW = params[8];
+
+  let ox = gid.x;
+  let oy = gid.y;
+  let nz = gid.z;
+  let ni = nz / C;
+  let ci = nz % C;
+
+  if (ni >= n || oy >= outH || ox >= outW || ci >= C) {
+    return;
+  }
+
+  var maxVal = -1e38;
+  for (var ky = 0u; ky < kernelSize; ky++) {
+    for (var kx = 0u; kx < kernelSize; kx++) {
+      let iy = i32(oy * stride + ky) - i32(padding);
+      let ix = i32(ox * stride + kx) - i32(padding);
+      if (iy >= 0 && iy < i32(H) && ix >= 0 && ix < i32(W)) {
+        let inIdx = ni * H * W * C + u32(iy) * W * C + u32(ix) * C + ci;
+        maxVal = max(maxVal, input[inIdx]);
+      }
+    }
+  }
+
+  let outIdx = ni * outH * outW * C + oy * outW * C + ox * C + ci;
+  output[outIdx] = select(0.0, maxVal, maxVal > -1e37);
+}
+`;
+
+export const AVG_POOL2D_SHADER = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@group(0) @binding(2) var<uniform> params: array<u32, 10>;
+
+@compute @workgroup_size(4, 4, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let n = params[0];
+  let H = params[1];
+  let W = params[2];
+  let C = params[3];
+  let kernelSize = params[4];
+  let stride = params[5];
+  let padding = params[6];
+  let outH = params[7];
+  let outW = params[8];
+
+  let ox = gid.x;
+  let oy = gid.y;
+  let nz = gid.z;
+  let ni = nz / C;
+  let ci = nz % C;
+
+  if (ni >= n || oy >= outH || ox >= outW || ci >= C) {
+    return;
+  }
+
+  var sum = 0.0;
+  var count = 0u;
+  for (var ky = 0u; ky < kernelSize; ky++) {
+    for (var kx = 0u; kx < kernelSize; kx++) {
+      let iy = i32(oy * stride + ky) - i32(padding);
+      let ix = i32(ox * stride + kx) - i32(padding);
+      if (iy >= 0 && iy < i32(H) && ix >= 0 && ix < i32(W)) {
+        let inIdx = ni * H * W * C + u32(iy) * W * C + u32(ix) * C + ci;
+        sum += input[inIdx];
+        count += 1u;
+      }
+    }
+  }
+
+  let outIdx = ni * outH * outW * C + oy * outW * C + ox * C + ci;
+  output[outIdx] = select(0.0, sum / f32(count), count > 0u);
+}
+`;
+
+export const FFT_DFT_SHADER = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@group(0) @binding(2) var<uniform> params: vec2<u32>;
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let n = params.x;
+  let inverse = params.y;
+  let k = gid.x;
+  if (k >= n) {
+    return;
+  }
+
+  let sign = select(-1.0, 1.0, inverse == 1u);
+  var real = 0.0;
+  var imag = 0.0;
+  for (var t = 0u; t < n; t++) {
+    let angle = sign * 6.283185307179586 * f32(k * t) / f32(n);
+    let c = cos(angle);
+    let s = sin(angle);
+    real += input[t] * c;
+    imag += input[t] * s;
+  }
+
+  if (inverse == 1u) {
+    real = real / f32(n);
+    imag = imag / f32(n);
+  }
+
+  output[2u * k] = real;
+  output[2u * k + 1u] = imag;
+}
+`;
+
+export const IFFT_DFT_SHADER = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@group(0) @binding(2) var<uniform> params: vec2<u32>;
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let n = params.x;
+  let k = gid.x;
+  if (k >= n) {
+    return;
+  }
+
+  var real = 0.0;
+  var imag = 0.0;
+  for (var t = 0u; t < n; t++) {
+    let angle = 6.283185307179586 * f32(k * t) / f32(n);
+    let c = cos(angle);
+    let s = sin(angle);
+    let xr = input[2u * t];
+    let xi = input[2u * t + 1u];
+    real += xr * c - xi * s;
+    imag += xr * s + xi * c;
+  }
+
+  output[2u * k] = real / f32(n);
+  output[2u * k + 1u] = imag / f32(n);
+}
+`;
+
+export const FFT_MAGNITUDE_SHADER = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let i = gid.x;
+  if (i < arrayLength(&output)) {
+    let r = input[2u * i];
+    let im = input[2u * i + 1u];
+    output[i] = sqrt(r * r + im * im);
+  }
+}
+`;

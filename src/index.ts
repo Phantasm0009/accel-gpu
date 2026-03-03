@@ -33,8 +33,12 @@ export interface InitOptions {
   forceCPU?: boolean;
   /** Prefer WebGL2 backend (e.g. when WebGPU is unavailable) */
   forceWebGL?: boolean;
-  /** Run in a Web Worker (reserved for future use) */
+  /** Run heavier CPU ops in a Web Worker when CPU backend is selected */
   worker?: boolean;
+  /** Prefer experimental WASM CPU runner when CPU backend is selected */
+  preferWasmCPU?: boolean;
+  /** Optional precompiled wasm module for experimental CPU WASM runner */
+  wasmModule?: WebAssembly.Module | ArrayBuffer;
   /** Enable profiling from the start */
   profiling?: boolean;
 }
@@ -60,12 +64,43 @@ export async function init(options?: InitOptions): Promise<AccelContext> {
     | import("./backend/webgl-runner").WebGLRunner
     | import("./backend/cpu-runner").CPURunner;
   let backendType: "webgpu" | "webgl" | "cpu";
+  let workerEnabled = false;
+  let cpuEngine: "js" | "wasm" | undefined;
+
+  async function createCPUExecutionRunner() {
+    if (options?.preferWasmCPU) {
+      const wasm = await import("./backend/wasm-cpu-runner");
+      const wasmRunner = await wasm.WasmCPURunner.create({ wasmModule: options?.wasmModule });
+      cpuEngine = wasmRunner.engine;
+      if (options?.worker) {
+        const worker = await import("./backend/worker-cpu-runner");
+        const workerRunner = new worker.WorkerCPURunner();
+        if (workerRunner.isWorkerEnabled) {
+          workerEnabled = true;
+          return workerRunner;
+        }
+      }
+      return wasmRunner;
+    }
+
+    cpuEngine = "js";
+    if (options?.worker) {
+      const worker = await import("./backend/worker-cpu-runner");
+      const workerRunner = new worker.WorkerCPURunner();
+      if (workerRunner.isWorkerEnabled) {
+        workerEnabled = true;
+        return workerRunner;
+      }
+    }
+
+    const cpuRunner = await import("./backend/cpu-runner");
+    return new cpuRunner.CPURunner();
+  }
 
   if (options?.forceCPU) {
     const cpu = await import("./backend/cpu-backend");
-    const cpuRunner = await import("./backend/cpu-runner");
     backend = cpu.createCPUBackend();
-    runner = new cpuRunner.CPURunner();
+    runner = await createCPUExecutionRunner();
     backendType = "cpu";
   } else if (options?.forceWebGL) {
     const webgl = await import("./backend/webgl-backend");
@@ -78,15 +113,28 @@ export async function init(options?: InitOptions): Promise<AccelContext> {
     backend = result.backend;
     runner = result.runner;
     backendType = result.backendType;
+    if (backendType === "cpu") {
+      runner = await createCPUExecutionRunner();
+    }
   }
 
   const profilingEntries: import("./types").ProfilingEntry[] = [];
   let profilingEnabled = options?.profiling ?? false;
+  const scopeStack: Set<GPUArray>[] = [];
+
+  function trackArray(arr: GPUArray): GPUArray {
+    if (scopeStack.length > 0) {
+      scopeStack[scopeStack.length - 1].add(arr);
+    }
+    return arr;
+  }
 
   const ctx: AccelContext = {
     backend,
     runner,
     backendType,
+    workerEnabled,
+    cpuEngine,
     enableProfiling(enable: boolean) {
       profilingEnabled = enable;
     },
@@ -103,7 +151,7 @@ export async function init(options?: InitOptions): Promise<AccelContext> {
       const G = (globalThis as any).GPUBufferUsage;
       const usage = G.STORAGE | G.COPY_SRC | G.COPY_DST;
       const buffer = backend.createBufferFromData(arr.buffer as ArrayBuffer, usage);
-      return new GPUArray(backend, runner, buffer, arr.length, shape ?? [arr.length]);
+      return trackArray(new GPUArray(backend, runner, buffer, arr.length, shape ?? [arr.length]));
     },
     zeros(shape: number[]) {
       const size = shape.reduce((a, b) => a * b, 1);
@@ -164,6 +212,18 @@ export async function init(options?: InitOptions): Promise<AccelContext> {
       ctx2d.putImageData(imageData, 0, 0);
       return canvas;
     },
+    async scoped<T>(fn: (ctx: AccelContext) => Promise<T> | T): Promise<T> {
+      const scope = new Set<GPUArray>();
+      scopeStack.push(scope);
+      try {
+        return await fn(ctx);
+      } finally {
+        scopeStack.pop();
+        for (const arr of scope) {
+          if (!arr.isDisposed) arr.dispose();
+        }
+      }
+    },
   };
 
   return ctx;
@@ -180,3 +240,5 @@ export { softmax, layerNorm, attentionScores, batchNorm } from "./ops/ml";
 export { maxPool2d, avgPool2d, conv2d } from "./ops/conv";
 /** FFT and spectrogram: fft, ifft, fftMagnitude, spectrogram. */
 export { fft, ifft, fftMagnitude, spectrogram } from "./ops/fft";
+/** Training helpers: numerical gradients and SGD updates. */
+export { gradients, sgdStep } from "./ops/training";

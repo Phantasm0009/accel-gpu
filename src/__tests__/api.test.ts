@@ -13,6 +13,8 @@ import {
   spectrogram,
   maxPool2d,
   batchNorm,
+  gradients,
+  sgdStep,
 } from "../../dist/index.js";
 
 describe("accel-gpu API", () => {
@@ -282,6 +284,59 @@ describe("accel-gpu API", () => {
     const beta = gpu.array(new Float32Array([0, 0, 0]));
     const bn = await batchNorm(gpu, ln, gamma, beta);
     expect(bn.length).toBe(6);
+  });
+
+  it("init options: worker + wasm cpu", async () => {
+    const workerCtx = await init({ forceCPU: true, worker: true });
+    expect(workerCtx.backendType).toBe("cpu");
+    expect(typeof workerCtx.workerEnabled).toBe("boolean");
+
+    const wasmCtx = await init({ forceCPU: true, preferWasmCPU: true });
+    expect(wasmCtx.backendType).toBe("cpu");
+    expect(wasmCtx.cpuEngine === "js" || wasmCtx.cpuEngine === "wasm").toBe(true);
+  });
+
+  it("scoped disposal", async () => {
+    let leaked: import("../../dist/index.js").GPUArray | undefined;
+    const val = await gpu.scoped(async (ctx) => {
+      const a = ctx.array(new Float32Array([1, 2, 3]));
+      leaked = a;
+      return await a.sum();
+    });
+    expect(val).toBe(6);
+    expect(leaked?.isDisposed).toBe(true);
+  });
+
+  it("gradients + sgdStep", async () => {
+    const w = gpu.array(new Float32Array([1]));
+    const x = 2;
+    const target = 4;
+
+    const lossFn = async () => {
+      const v = (await w.toArray())[0];
+      const d = v * x - target;
+      return d * d;
+    };
+
+    const grads = await gradients(gpu, [w], lossFn, 1e-3);
+    const g0 = (await grads[0].toArray())[0];
+    expect(g0).toBeCloseTo(-8, 1);
+
+    await sgdStep([w], grads, 0.1);
+    const w1 = (await w.toArray())[0];
+    expect(w1).toBeGreaterThan(1);
+  });
+
+  it("automatic scalar affine fusion", async () => {
+    const a = gpu.array(new Float32Array([1, 2, 3]));
+    await a.add(2);
+    await a.mul(3);
+    await a.sub(1);
+    await a.div(2);
+    const out = await a.toArray();
+    expect(out[0]).toBeCloseTo(4, 5);
+    expect(out[1]).toBeCloseTo(5.5, 5);
+    expect(out[2]).toBeCloseTo(7, 5);
   });
 
   it("norm, outer, mse, crossEntropy", async () => {

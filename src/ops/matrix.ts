@@ -1,10 +1,11 @@
 /**
  * Matrix operations - inv, det, solve, qr, svd
- * CPU implementation for now (small matrices)
+ * WebGPU iterative paths for inv/qr/svd with CPU fallback implementations
  */
 
 import type { GPUArray } from "../array";
 import type { AccelContext } from "../types";
+import { matmul, transpose } from "./linear";
 
 function copyTo2D(arr: Float32Array, rows: number, cols: number): number[][] {
   const m: number[][] = [];
@@ -89,6 +90,157 @@ function invertFromLU(L: number[][], U: number[][], perm: number[]): number[][] 
   return inv.map((col, j) => col.map((_, i) => inv[i][j]));
 }
 
+function identityData(n: number): Float32Array {
+  const out = new Float32Array(n * n);
+  for (let i = 0; i < n; i++) out[i * n + i] = 1;
+  return out;
+}
+
+function matrixNorm1(data: Float32Array, rows: number, cols: number): number {
+  let max = 0;
+  for (let c = 0; c < cols; c++) {
+    let sum = 0;
+    for (let r = 0; r < rows; r++) sum += Math.abs(data[r * cols + c]);
+    if (sum > max) max = sum;
+  }
+  return max;
+}
+
+function matrixNormInf(data: Float32Array, rows: number, cols: number): number {
+  let max = 0;
+  for (let r = 0; r < rows; r++) {
+    let sum = 0;
+    for (let c = 0; c < cols; c++) sum += Math.abs(data[r * cols + c]);
+    if (sum > max) max = sum;
+  }
+  return max;
+}
+
+async function invWebGPU(ctx: AccelContext, a: GPUArray, n: number): Promise<GPUArray> {
+  await a.materialize();
+  const aData = await a.toArray();
+  const norm1 = matrixNorm1(aData, n, n);
+  const normInf = matrixNormInf(aData, n, n);
+  const scale = 1 / Math.max(1e-8, norm1 * normInf);
+
+  const at = await transpose(ctx, a, n, n);
+  let X = await at.clone();
+  await X.mul(scale);
+  at.dispose();
+
+  const I = ctx.array(identityData(n), [n, n]);
+
+  for (let iter = 0; iter < 8; iter++) {
+    const AX = await matmul(ctx, a, X, n, n, n);
+    const M = await I.clone();
+    await M.mul(2);
+    await M.sub(AX);
+    AX.dispose();
+
+    const Xnext = await matmul(ctx, X, M, n, n, n);
+    M.dispose();
+    X.dispose();
+    X = Xnext;
+  }
+
+  I.dispose();
+  return X;
+}
+
+async function qrWebGPU(
+  ctx: AccelContext,
+  a: GPUArray,
+  m: number,
+  n: number
+): Promise<{ Q: GPUArray; R: GPUArray }> {
+  await a.materialize();
+  let Q = await a.clone();
+  const I = ctx.array(identityData(n), [n, n]);
+
+  for (let iter = 0; iter < 6; iter++) {
+    const Qt = await transpose(ctx, Q, m, n);
+    const QtQ = await matmul(ctx, Qt, Q, n, n, m);
+    Qt.dispose();
+
+    const T = await I.clone();
+    await T.mul(3);
+    await T.sub(QtQ);
+    QtQ.dispose();
+    await T.mul(0.5);
+
+    const Qnext = await matmul(ctx, Q, T, m, n, n);
+    T.dispose();
+    Q.dispose();
+    Q = Qnext;
+  }
+
+  const Qt = await transpose(ctx, Q, m, n);
+  const R = await matmul(ctx, Qt, a, n, n, m);
+  Qt.dispose();
+  I.dispose();
+  return { Q, R };
+}
+
+async function svdWebGPU(
+  ctx: AccelContext,
+  a: GPUArray,
+  m: number,
+  n: number
+): Promise<{ U: GPUArray; S: GPUArray; V: GPUArray }> {
+  await a.materialize();
+  const k = Math.min(m, n);
+  const At = await transpose(ctx, a, m, n);
+  let B = await matmul(ctx, At, a, n, n, m);
+  At.dispose();
+
+  const Ucols: Float32Array[] = [];
+  const Vcols: Float32Array[] = [];
+  const S = new Float32Array(k);
+
+  for (let comp = 0; comp < k; comp++) {
+    let v = ctx.random([n]);
+    for (let it = 0; it < 16; it++) {
+      const Bv = await matmul(ctx, B, v, n, 1, n);
+      const norm = Math.max(1e-8, await Bv.norm(2));
+      await Bv.div(norm);
+      v.dispose();
+      v = Bv;
+    }
+
+    const Bv = await matmul(ctx, B, v, n, 1, n);
+    const lambda = await v.dot(Bv);
+    Bv.dispose();
+    const sigma = Math.sqrt(Math.max(0, lambda));
+    S[comp] = sigma;
+
+    const Av = await matmul(ctx, a, v, m, 1, n);
+    if (sigma > 1e-8) await Av.div(sigma);
+    const uData = await Av.toArray();
+    const vData = await v.toArray();
+    Ucols.push(uData);
+    Vcols.push(vData);
+
+    const vvT = await v.outer(v);
+    await vvT.mul(lambda);
+    await B.sub(vvT);
+    vvT.dispose();
+    Av.dispose();
+    v.dispose();
+  }
+
+  const Uarr = new Float32Array(m * k);
+  const Varr = new Float32Array(n * k);
+  for (let i = 0; i < m; i++) for (let j = 0; j < k; j++) Uarr[i * k + j] = Ucols[j][i] ?? 0;
+  for (let i = 0; i < n; i++) for (let j = 0; j < k; j++) Varr[i * k + j] = Vcols[j][i] ?? 0;
+
+  B.dispose();
+  return {
+    U: ctx.array(Uarr, [m, k]),
+    S: ctx.array(S, [k]),
+    V: ctx.array(Varr, [n, k]),
+  };
+}
+
 /**
  * Matrix inverse. Input must be square matrix.
  */
@@ -108,6 +260,11 @@ export async function inv(
     throw new Error("inv: provide rows and cols, or use 2D array");
   }
   if (r !== c) throw new Error(`inv: matrix must be square, got ${r}×${c}`);
+
+  if (ctx.backendType === "webgpu") {
+    return invWebGPU(ctx, a, r);
+  }
+
   const data = await a.toArray();
   const m = copyTo2D(data, r, c);
   const { L, U, perm } = luDecompose(m);
@@ -196,6 +353,10 @@ export async function qr(
   } else {
     throw new Error("qr: provide rows and cols, or use 2D array");
   }
+  if (ctx.backendType === "webgpu") {
+    return qrWebGPU(ctx, a, m, n);
+  }
+
   const data = await a.toArray();
   const A = copyTo2D(data, m, n);
   const Q: number[][] = Array.from({ length: m }, (_, i) =>
@@ -260,6 +421,10 @@ export async function svd(
   } else {
     throw new Error("svd: provide rows and cols, or use 2D array");
   }
+  if (ctx.backendType === "webgpu") {
+    return svdWebGPU(ctx, a, m, n);
+  }
+
   const data = await a.toArray();
   const A = copyTo2D(data, m, n);
 

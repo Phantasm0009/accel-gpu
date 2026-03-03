@@ -4,6 +4,27 @@ All notable changes to accel-gpu will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.8] - 2026-03-03
+
+### Added
+
+- **WebGPU kernels** — `conv2d`, `maxPool2d`, `avgPool2d` now dispatch on WebGPU backend
+- **WebGPU FFT kernels** — `fft()`, `ifft()`, and `fftMagnitude()` now use GPU compute on WebGPU backend
+- **GPU matrix ops** — `inv()`, `qr()`, and `svd()` now use iterative WebGPU paths on WebGPU backend
+- **CPU worker path (experimental)** — `init({ forceCPU: true, worker: true })`
+- **CPU WASM path (experimental)** — `init({ forceCPU: true, preferWasmCPU: true, wasmModule })`
+- **Runtime backend flags** — `gpu.workerEnabled`, `gpu.cpuEngine`
+- **Scoped lifecycle API** — `gpu.scoped(fn)` for deterministic disposal of temporary arrays
+- **Training helpers** — `gradients(...)` (numerical gradients) and `sgdStep(...)`
+
+### Changed
+
+- `conv2d`, pooling, and FFT ops keep existing CPU/WebGL behavior as fallback while using WebGPU when available
+- Updated docs and site examples for worker/WASM init options and accelerated op coverage
+- Added troubleshooting guidance: `/.well-known/appspecific/com.chrome.devtools.json` 404 and `304` asset responses in local dev server logs are expected and harmless
+- Added automatic scalar-chain fusion optimization for `add/sub/mul/div` before buffer materialization
+- Added `FinalizationRegistry` best-effort cleanup for leaked arrays
+
 ## [0.2.7] - 2025-03-02
 
 ### Changed

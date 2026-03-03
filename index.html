@@ -168,6 +168,8 @@
     <pre><code>const gpu = await init();
 const gpu = await init({ forceCPU: true });   // Force CPU for testing
 const gpu = await init({ forceWebGL: true }); // WebGL2
+const gpu = await init({ forceCPU: true, worker: true }); // Worker CPU (experimental)
+const gpu = await init({ forceCPU: true, preferWasmCPU: true, wasmModule }); // WASM CPU (experimental)
 const gpu = await init({ profiling: true });  // Enable profiling</code></pre>
 
     <h2>Quick Start</h2>
@@ -187,7 +189,7 @@ console.log(await a.toArray()); // [6, 8, 10, 12]</code></pre>
       </div>
       <div class="card">
         <h3>Method chaining</h3>
-        <p>add, mul return Promises for chaining</p>
+        <p>add, mul return Promises for chaining + scalar fusion</p>
       </div>
       <div class="card">
         <h3>ML primitives</h3>
@@ -195,11 +197,11 @@ console.log(await a.toArray()); // [6, 8, 10, 12]</code></pre>
       </div>
       <div class="card">
         <h3>FFT & signal</h3>
-        <p>fft, ifft, spectrogram</p>
+        <p>WebGPU fft, ifft, fftMagnitude + spectrogram</p>
       </div>
       <div class="card">
         <h3>Conv & pool</h3>
-        <p>conv2d, maxPool2d, avgPool2d</p>
+        <p>WebGPU conv2d, maxPool2d, avgPool2d</p>
       </div>
       <div class="card">
         <h3>Universal</h3>
@@ -224,16 +226,33 @@ const normed = await layerNorm(gpu, x, gamma, beta);
 const scores = await attentionScores(gpu, Q, K);
 const spec = await spectrogram(gpu, signal, 256, 128);</code></pre>
 
+    <h2>Scoped lifecycle</h2>
+    <pre><code>await gpu.scoped(async (ctx) => {
+    const tmp = ctx.array([1, 2, 3]);
+    await tmp.add(2);
+  }); // scoped arrays are disposed on exit</code></pre>
+
+    <h2>Training helpers</h2>
+    <pre><code>const grads = await gradients(gpu, [w], lossFn);
+  await sgdStep([w], grads, 0.01);</code></pre>
+
     <h2>Matrix ops</h2>
     <pre><code>const invA = await inv(gpu, A);
 const d = await det(gpu, A);
 const x = await solve(gpu, A, b);</code></pre>
+    <p>`inv`, `qr`, and `svd` use iterative WebGPU paths on WebGPU backend, with CPU fallback.</p>
 
     <h2>Fallback chain</h2>
     <ul>
       <li><strong>WebGPU</strong> — Chrome 113+, Edge 113+ (best)</li>
       <li><strong>WebGL2</strong> — Safari, Firefox, older Chrome</li>
       <li><strong>CPU</strong> — Node, headless, no GPU</li>
+    </ul>
+
+    <h2>Troubleshooting</h2>
+    <ul>
+      <li><strong>Harmless Chrome probe:</strong> `/.well-known/appspecific/com.chrome.devtools.json` may return 404 in local server logs.</li>
+      <li><strong>Normal cache behavior:</strong> `304` responses for `dist/index.js` or source maps are expected.</li>
     </ul>
 
     <div class="footer">

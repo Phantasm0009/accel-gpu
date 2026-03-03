@@ -33,6 +33,12 @@ import {
   SOFTMAX_SHADER,
   LAYER_NORM_SHADER,
   ATTENTION_SCORES_SHADER,
+  CONV2D_SHADER,
+  MAX_POOL2D_SHADER,
+  AVG_POOL2D_SHADER,
+  FFT_DFT_SHADER,
+  IFFT_DFT_SHADER,
+  FFT_MAGNITUDE_SHADER,
 } from "../kernels/shaders";
 
 const WORKGROUP_SIZE = 256;
@@ -536,5 +542,177 @@ export class KernelRunner {
     const workgroupsY = Math.ceil(seq / 8);
     this.backend.runPipeline(pipeline, [bindGroup], [workgroupsX, workgroupsY]);
     paramsBuffer.destroy();
+  }
+
+  async conv2d(
+    input: GPUBuffer,
+    kernel: GPUBuffer,
+    output: GPUBuffer,
+    n: number,
+    h: number,
+    w: number,
+    cIn: number,
+    kH: number,
+    kW: number,
+    cOut: number,
+    outH: number,
+    outW: number,
+    stride: number,
+    padding: number
+  ): Promise<void> {
+    const pipeline = await this.getPipeline("conv2d", CONV2D_SHADER);
+    const params = new Uint32Array([n, h, w, cIn, kH, kW, cOut, outH, outW, stride, padding, 0]);
+    const paramsBuffer = this.backend.device.createBuffer({
+      size: params.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(paramsBuffer, 0, params.buffer);
+
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: input } },
+        { binding: 1, resource: { buffer: kernel } },
+        { binding: 2, resource: { buffer: output } },
+        { binding: 3, resource: { buffer: paramsBuffer } },
+      ],
+    });
+
+    const workgroupsX = Math.ceil(outW / 4);
+    const workgroupsY = Math.ceil(outH / 4);
+    const workgroupsZ = Math.max(1, n * cOut);
+    this.backend.runPipeline(pipeline, [bindGroup], [workgroupsX, workgroupsY, workgroupsZ]);
+    paramsBuffer.destroy();
+  }
+
+  async maxPool2d(
+    input: GPUBuffer,
+    output: GPUBuffer,
+    n: number,
+    h: number,
+    w: number,
+    c: number,
+    kernelSize: number,
+    stride: number,
+    padding: number,
+    outH: number,
+    outW: number
+  ): Promise<void> {
+    const pipeline = await this.getPipeline("max_pool2d", MAX_POOL2D_SHADER);
+    const params = new Uint32Array([n, h, w, c, kernelSize, stride, padding, outH, outW, 0]);
+    const paramsBuffer = this.backend.device.createBuffer({
+      size: params.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(paramsBuffer, 0, params.buffer);
+
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: input } },
+        { binding: 1, resource: { buffer: output } },
+        { binding: 2, resource: { buffer: paramsBuffer } },
+      ],
+    });
+
+    const workgroupsX = Math.ceil(outW / 4);
+    const workgroupsY = Math.ceil(outH / 4);
+    const workgroupsZ = Math.max(1, n * c);
+    this.backend.runPipeline(pipeline, [bindGroup], [workgroupsX, workgroupsY, workgroupsZ]);
+    paramsBuffer.destroy();
+  }
+
+  async avgPool2d(
+    input: GPUBuffer,
+    output: GPUBuffer,
+    n: number,
+    h: number,
+    w: number,
+    c: number,
+    kernelSize: number,
+    stride: number,
+    padding: number,
+    outH: number,
+    outW: number
+  ): Promise<void> {
+    const pipeline = await this.getPipeline("avg_pool2d", AVG_POOL2D_SHADER);
+    const params = new Uint32Array([n, h, w, c, kernelSize, stride, padding, outH, outW, 0]);
+    const paramsBuffer = this.backend.device.createBuffer({
+      size: params.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(paramsBuffer, 0, params.buffer);
+
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: input } },
+        { binding: 1, resource: { buffer: output } },
+        { binding: 2, resource: { buffer: paramsBuffer } },
+      ],
+    });
+
+    const workgroupsX = Math.ceil(outW / 4);
+    const workgroupsY = Math.ceil(outH / 4);
+    const workgroupsZ = Math.max(1, n * c);
+    this.backend.runPipeline(pipeline, [bindGroup], [workgroupsX, workgroupsY, workgroupsZ]);
+    paramsBuffer.destroy();
+  }
+
+  async fftReal(input: GPUBuffer, output: GPUBuffer, n: number, inverse = false): Promise<void> {
+    const pipeline = await this.getPipeline("fft_dft", FFT_DFT_SHADER);
+    const paramsBuffer = this.backend.device.createBuffer({
+      size: 8,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(
+      paramsBuffer,
+      0,
+      new Uint32Array([n, inverse ? 1 : 0]).buffer
+    );
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: input } },
+        { binding: 1, resource: { buffer: output } },
+        { binding: 2, resource: { buffer: paramsBuffer } },
+      ],
+    });
+
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(n / WORKGROUP_SIZE)]);
+    paramsBuffer.destroy();
+  }
+
+  async ifftComplex(input: GPUBuffer, output: GPUBuffer, n: number): Promise<void> {
+    const pipeline = await this.getPipeline("ifft_dft", IFFT_DFT_SHADER);
+    const paramsBuffer = this.backend.device.createBuffer({
+      size: 8,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.backend.queue.writeBuffer(paramsBuffer, 0, new Uint32Array([n, 0]).buffer);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: input } },
+        { binding: 1, resource: { buffer: output } },
+        { binding: 2, resource: { buffer: paramsBuffer } },
+      ],
+    });
+
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(n / WORKGROUP_SIZE)]);
+    paramsBuffer.destroy();
+  }
+
+  async fftMagnitude(inputComplex: GPUBuffer, outputMagnitude: GPUBuffer, n: number): Promise<void> {
+    const pipeline = await this.getPipeline("fft_magnitude", FFT_MAGNITUDE_SHADER);
+    const bindGroup = this.backend.device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: inputComplex } },
+        { binding: 1, resource: { buffer: outputMagnitude } },
+      ],
+    });
+
+    this.backend.runPipeline(pipeline, [bindGroup], [Math.ceil(n / WORKGROUP_SIZE)]);
   }
 }

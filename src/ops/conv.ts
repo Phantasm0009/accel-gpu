@@ -4,6 +4,7 @@
 
 import type { GPUArray } from "../array";
 import type { AccelContext } from "../types";
+import type { KernelRunner } from "../backend/kernel-runner";
 
 function get4DShape(
   input: GPUArray,
@@ -37,6 +38,34 @@ export async function maxPool2d(
   const s = stride ?? kernelSize;
   const pH = Math.floor((H + 2 * padding - kernelSize) / s) + 1;
   const pW = Math.floor((W + 2 * padding - kernelSize) / s) + 1;
+
+  if (ctx.backendType === "webgpu") {
+    await input.materialize();
+    const G = (globalThis as any).GPUBufferUsage;
+    const usage = G.STORAGE | G.COPY_SRC | G.COPY_DST;
+    const out = ctx.backend.createBuffer(n * pH * pW * C * 4, usage);
+    await (ctx.runner as KernelRunner).maxPool2d(
+      input.getBuffer() as GPUBuffer,
+      out as GPUBuffer,
+      n,
+      H,
+      W,
+      C,
+      kernelSize,
+      s,
+      padding,
+      pH,
+      pW
+    );
+    return new (await import("../array")).GPUArray(
+      ctx.backend,
+      ctx.runner,
+      out,
+      n * pH * pW * C,
+      n === 1 ? [pH, pW, C] : [n, pH, pW, C]
+    );
+  }
+
   const data = await input.toArray();
 
   const out = new Float32Array(n * pH * pW * C);
@@ -88,6 +117,34 @@ export async function avgPool2d(
   const s = stride ?? kernelSize;
   const pH = Math.floor((H + 2 * padding - kernelSize) / s) + 1;
   const pW = Math.floor((W + 2 * padding - kernelSize) / s) + 1;
+
+  if (ctx.backendType === "webgpu") {
+    await input.materialize();
+    const G = (globalThis as any).GPUBufferUsage;
+    const usage = G.STORAGE | G.COPY_SRC | G.COPY_DST;
+    const out = ctx.backend.createBuffer(n * pH * pW * C * 4, usage);
+    await (ctx.runner as KernelRunner).avgPool2d(
+      input.getBuffer() as GPUBuffer,
+      out as GPUBuffer,
+      n,
+      H,
+      W,
+      C,
+      kernelSize,
+      s,
+      padding,
+      pH,
+      pW
+    );
+    return new (await import("../array")).GPUArray(
+      ctx.backend,
+      ctx.runner,
+      out,
+      n * pH * pW * C,
+      n === 1 ? [pH, pW, C] : [n, pH, pW, C]
+    );
+  }
+
   const data = await input.toArray();
 
   const out = new Float32Array(n * pH * pW * C);
@@ -145,6 +202,38 @@ export async function conv2d(
 
   const outH = Math.floor((H + 2 * padding - kH) / stride) + 1;
   const outW = Math.floor((W + 2 * padding - kW) / stride) + 1;
+
+  if (ctx.backendType === "webgpu") {
+    await input.materialize();
+    await kernel.materialize();
+    const G = (globalThis as any).GPUBufferUsage;
+    const usage = G.STORAGE | G.COPY_SRC | G.COPY_DST;
+    const out = ctx.backend.createBuffer(n * outH * outW * C_out * 4, usage);
+    await (ctx.runner as KernelRunner).conv2d(
+      input.getBuffer() as GPUBuffer,
+      kernel.getBuffer() as GPUBuffer,
+      out as GPUBuffer,
+      n,
+      H,
+      W,
+      C_in,
+      kH,
+      kW,
+      C_out,
+      outH,
+      outW,
+      stride,
+      padding
+    );
+    return new (await import("../array")).GPUArray(
+      ctx.backend,
+      ctx.runner,
+      out,
+      n * outH * outW * C_out,
+      n === 1 ? [outH, outW, C_out] : [n, outH, outW, C_out]
+    );
+  }
+
   const inData = await input.toArray();
   const kData = await kernel.toArray();
 

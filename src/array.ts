@@ -31,12 +31,27 @@ function isWebGL(backend: Backend): backend is WebGLBackend {
  * and reshape. Data lives on the selected backend (WebGPU, WebGL2, or CPU).
  */
 export class GPUArray {
+  private static finalizer =
+    typeof (globalThis as any).FinalizationRegistry !== "undefined"
+      ? new (globalThis as any).FinalizationRegistry((cleanup: () => void) => {
+          try {
+            cleanup();
+          } catch {
+            // best-effort cleanup only
+          }
+        })
+      : undefined;
+
   private backend: Backend;
   private runner: Runner;
   private buffer: Buffer;
   readonly length: number;
   readonly byteLength: number;
   private _shape: number[];
+  private _finalizerToken: object;
+  private _fusedScale = 1;
+  private _fusedBias = 0;
+  private _hasFusedAffine = false;
 
   /** @internal */
   constructor(backend: Backend, runner: Runner, buffer: Buffer, length: number, shape?: number[]) {
@@ -46,11 +61,104 @@ export class GPUArray {
     this.length = length;
     this.byteLength = length * 4;
     this._shape = shape ?? [length];
+    this._finalizerToken = {};
+
+    if (GPUArray.finalizer) {
+      const cleanupBackend = backend;
+      const cleanupBuffer = buffer;
+      GPUArray.finalizer.register(
+        this,
+        () => {
+          if (isWebGPU(cleanupBackend)) {
+            cleanupBackend.destroyBuffer(cleanupBuffer as GPUBuffer);
+          } else if (isWebGL(cleanupBackend)) {
+            (cleanupBackend as WebGLBackend).destroyBuffer(
+              cleanupBuffer as import("./backend/webgl-backend").WebGLBuffer
+            );
+          }
+        },
+        this._finalizerToken
+      );
+    }
   }
 
   /** Current shape of the array (e.g. [2, 3] for a 2×3 matrix). */
   get shape(): number[] {
     return [...this._shape];
+  }
+
+  private _enqueueAffine(scaleMul: number, biasAdd: number): void {
+    this._fusedScale *= scaleMul;
+    this._fusedBias = this._fusedBias * scaleMul + biasAdd;
+    this._hasFusedAffine = true;
+  }
+
+  private async _flushFusedAffine(): Promise<void> {
+    if (!this._hasFusedAffine) return;
+    const scale = this._fusedScale;
+    const bias = this._fusedBias;
+    this._fusedScale = 1;
+    this._fusedBias = 0;
+    this._hasFusedAffine = false;
+
+    if (scale === 1 && bias === 0) return;
+
+    if (isWebGPU(this.backend)) {
+      const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
+      let current = this.buffer as GPUBuffer;
+
+      if (scale !== 1) {
+        const out = this.backend.createBuffer(this.byteLength, usage);
+        await (this.runner as KernelRunner).mulScalar(current, scale, out, this.length);
+        if (current !== this.buffer) this.backend.destroyBuffer(current);
+        else this.backend.destroyBuffer(this.buffer as GPUBuffer);
+        current = out;
+      }
+
+      if (bias !== 0) {
+        const scalarData = new Float32Array(this.length).fill(bias);
+        const scalarBuf = this.backend.createBufferFromData(scalarData.buffer as ArrayBuffer, usage);
+        const out = this.backend.createBuffer(this.byteLength, usage);
+        await (this.runner as KernelRunner).add(current, scalarBuf, out, this.length);
+        this.backend.destroyBuffer(scalarBuf);
+        this.backend.destroyBuffer(current);
+        current = out;
+      }
+
+      this.buffer = current;
+      return;
+    }
+
+    if (isWebGL(this.backend)) {
+      const webglBackend = this.backend as WebGLBackend;
+      const webglRunner = this.runner as WebGLRunner;
+      let current = this.buffer as import("./backend/webgl-backend").WebGLBuffer;
+
+      if (scale !== 1) {
+        const out = webglBackend.createBuffer(this.byteLength, 0);
+        await webglRunner.mulScalar(current, scale, out, this.length);
+        webglBackend.destroyBuffer(current);
+        current = out;
+      }
+
+      if (bias !== 0) {
+        const scalarData = new Float32Array(this.length).fill(bias);
+        const scalarBuf = webglBackend.createBufferFromData(scalarData.buffer as ArrayBuffer, 0);
+        const out = webglBackend.createBuffer(this.byteLength, 0);
+        await webglRunner.add(current, scalarBuf, out, this.length);
+        webglBackend.destroyBuffer(scalarBuf);
+        webglBackend.destroyBuffer(current);
+        current = out;
+      }
+
+      this.buffer = current;
+      return;
+    }
+
+    const cpuBuffer = this.buffer as { data: Float32Array };
+    for (let i = 0; i < this.length; i++) {
+      cpuBuffer.data[i] = cpuBuffer.data[i] * scale + bias;
+    }
   }
 
   /**
@@ -75,6 +183,7 @@ export class GPUArray {
    */
   async toArray(): Promise<Float32Array> {
     this._ensureNotDisposed();
+    await this._flushFusedAffine();
     const result = new Float32Array(this.length);
     if (isWebGPU(this.backend)) {
       await this.backend.readBuffer(this.buffer as GPUBuffer, result.buffer);
@@ -103,6 +212,12 @@ export class GPUArray {
   /** Release GPU/CPU resources. No-op if already disposed. */
   dispose(): void {
     if (this._disposed) return;
+    this._hasFusedAffine = false;
+    this._fusedScale = 1;
+    this._fusedBias = 0;
+    if (GPUArray.finalizer) {
+      GPUArray.finalizer.unregister(this._finalizerToken);
+    }
     if (isWebGPU(this.backend)) {
       this.backend.destroyBuffer(this.buffer as GPUBuffer);
     } else if (isWebGL(this.backend)) {
@@ -127,6 +242,7 @@ export class GPUArray {
       | "pow",
     scalarOrExponent?: number
   ): Promise<GPUArray> {
+    await this._flushFusedAffine();
     const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
     if (isWebGPU(this.backend)) {
       const out = this.backend.createBuffer(this.byteLength, usage);
@@ -223,46 +339,17 @@ export class GPUArray {
    */
   async add(other: GPUArray | number): Promise<GPUArray> {
     this._ensureNotDisposed();
+    if (typeof other === "number") {
+      this._enqueueAffine(1, other);
+      return this;
+    }
+
+    await this._flushFusedAffine();
     if (typeof other !== "number" && other.length !== this.length) {
       errLengthMismatch("add", this.length, other.length);
     }
 
     if (isWebGL(this.backend)) return this.addWebGL(other);
-
-    if (typeof other === "number") {
-      const scalarData = new Float32Array(this.length).fill(other);
-      if (isWebGPU(this.backend)) {
-        const scalarBuf = this.backend.createBufferFromData(
-          scalarData.buffer as ArrayBuffer,
-          GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-        );
-        const out = this.backend.createBuffer(
-          this.byteLength,
-          GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-        );
-        await (this.runner as KernelRunner).add(
-          this.buffer as GPUBuffer,
-          scalarBuf,
-          out,
-          this.length
-        );
-        this.backend.destroyBuffer(scalarBuf);
-        this.backend.destroyBuffer(this.buffer as GPUBuffer);
-        this.buffer = out;
-      } else {
-        const cpuRunner = this.runner as CPURunner;
-        const out = (this.backend as CPUBackend).createBuffer(this.byteLength);
-        await cpuRunner.add(
-          this.buffer as { data: Float32Array },
-          { data: scalarData },
-          out,
-          this.length
-        );
-        (this.backend as CPUBackend).destroyBuffer(this.buffer as { data: Float32Array });
-        this.buffer = out;
-      }
-      return this;
-    }
 
     if (isWebGPU(this.backend)) {
       const out = this.backend.createBuffer(
@@ -298,6 +385,12 @@ export class GPUArray {
    */
   async mul(other: GPUArray | number): Promise<GPUArray> {
     this._ensureNotDisposed();
+    if (typeof other === "number") {
+      this._enqueueAffine(other, 0);
+      return this;
+    }
+
+    await this._flushFusedAffine();
     if (typeof other !== "number" && other.length !== this.length) {
       errLengthMismatch("mul", this.length, other.length);
     }
@@ -324,34 +417,6 @@ export class GPUArray {
       }
       webglBackend.destroyBuffer(this.buffer as import("./backend/webgl-backend").WebGLBuffer);
       this.buffer = out;
-      return this;
-    }
-
-    if (typeof other === "number") {
-      if (isWebGPU(this.backend)) {
-        const out = this.backend.createBuffer(
-          this.byteLength,
-          GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-        );
-        await (this.runner as KernelRunner).mulScalar(
-          this.buffer as GPUBuffer,
-          other,
-          out,
-          this.length
-        );
-        this.backend.destroyBuffer(this.buffer as GPUBuffer);
-        this.buffer = out;
-      } else {
-        const out = (this.backend as CPUBackend).createBuffer(this.byteLength);
-        await (this.runner as CPURunner).mulScalar(
-          this.buffer as { data: Float32Array },
-          other,
-          out,
-          this.length
-        );
-        (this.backend as CPUBackend).destroyBuffer(this.buffer as { data: Float32Array });
-        this.buffer = out;
-      }
       return this;
     }
 
@@ -427,40 +492,16 @@ export class GPUArray {
   /** Element-wise subtract. Mutates this in-place. */
   async sub(other: GPUArray | number): Promise<GPUArray> {
     this._ensureNotDisposed();
+    if (typeof other === "number") {
+      this._enqueueAffine(1, -other);
+      return this;
+    }
+
+    await this._flushFusedAffine();
     if (typeof other !== "number" && other.length !== this.length)
       errLengthMismatch("sub", this.length, other.length);
     if (isWebGL(this.backend)) return this.subWebGL(other);
     const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
-    if (typeof other === "number") {
-      const scalarData = new Float32Array(this.length).fill(other);
-      if (isWebGPU(this.backend)) {
-        const scalarBuf = this.backend.createBufferFromData(
-          scalarData.buffer as ArrayBuffer,
-          usage
-        );
-        const out = this.backend.createBuffer(this.byteLength, usage);
-        await (this.runner as KernelRunner).sub(
-          this.buffer as GPUBuffer,
-          scalarBuf,
-          out,
-          this.length
-        );
-        this.backend.destroyBuffer(scalarBuf);
-        this.backend.destroyBuffer(this.buffer as GPUBuffer);
-        this.buffer = out;
-      } else {
-        const out = (this.backend as CPUBackend).createBuffer(this.byteLength);
-        await (this.runner as CPURunner).subScalar(
-          this.buffer as { data: Float32Array },
-          other,
-          out,
-          this.length
-        );
-        (this.backend as CPUBackend).destroyBuffer(this.buffer as { data: Float32Array });
-        this.buffer = out;
-      }
-      return this;
-    }
     if (isWebGPU(this.backend)) {
       const out = this.backend.createBuffer(this.byteLength, usage);
       await (this.runner as KernelRunner).sub(
@@ -488,34 +529,17 @@ export class GPUArray {
   /** Element-wise divide. Mutates this in-place. */
   async div(other: GPUArray | number): Promise<GPUArray> {
     this._ensureNotDisposed();
+    if (typeof other === "number") {
+      if (other === 0) this._enqueueAffine(0, 0);
+      else this._enqueueAffine(1 / other, 0);
+      return this;
+    }
+
+    await this._flushFusedAffine();
     if (typeof other !== "number" && other.length !== this.length)
       errLengthMismatch("div", this.length, other.length);
     if (isWebGL(this.backend)) return this.divWebGL(other);
     const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
-    if (typeof other === "number") {
-      if (isWebGPU(this.backend)) {
-        const out = this.backend.createBuffer(this.byteLength, usage);
-        await (this.runner as KernelRunner).divScalar(
-          this.buffer as GPUBuffer,
-          other,
-          out,
-          this.length
-        );
-        this.backend.destroyBuffer(this.buffer as GPUBuffer);
-        this.buffer = out;
-      } else {
-        const out = (this.backend as CPUBackend).createBuffer(this.byteLength);
-        await (this.runner as CPURunner).divScalar(
-          this.buffer as { data: Float32Array },
-          other,
-          out,
-          this.length
-        );
-        (this.backend as CPUBackend).destroyBuffer(this.buffer as { data: Float32Array });
-        this.buffer = out;
-      }
-      return this;
-    }
     if (isWebGPU(this.backend)) {
       const out = this.backend.createBuffer(this.byteLength, usage);
       await (this.runner as KernelRunner).div(
@@ -796,6 +820,7 @@ export class GPUArray {
   async sum(axis?: number): Promise<number | GPUArray> {
     if (axis !== undefined) return this.sumAxis(axis);
     this._ensureNotDisposed();
+    await this._flushFusedAffine();
     if (this.length === 0) return 0;
     if (this.length === 1) {
       const result = new Float32Array(1);
@@ -866,6 +891,7 @@ export class GPUArray {
    */
   async max(axis?: number): Promise<number | GPUArray> {
     if (axis !== undefined) return this.maxAxis(axis);
+    await this._flushFusedAffine();
     if (this.length === 0) return -Infinity;
     if (this.length === 1) {
       const result = new Float32Array(1);
@@ -987,6 +1013,7 @@ export class GPUArray {
 
   /** Reduce min over all elements. */
   async min(): Promise<number> {
+    await this._flushFusedAffine();
     if (this.length === 0) return Infinity;
     if (this.length === 1) {
       const result = new Float32Array(1);
@@ -1056,6 +1083,8 @@ export class GPUArray {
    * @returns Promise resolving to the dot product scalar
    */
   async dot(other: GPUArray): Promise<number> {
+    await this._flushFusedAffine();
+    await other._flushFusedAffine();
     if (other.length !== this.length) errLengthMismatch("dot", this.length, other.length);
 
     if (isWebGL(this.backend)) {
@@ -1111,6 +1140,12 @@ export class GPUArray {
   getBuffer(): GPUBuffer | import("./backend/webgl-backend").WebGLBuffer | { data: Float32Array } {
     this._ensureNotDisposed();
     return this.buffer;
+  }
+
+  /** Ensure deferred scalar-fused ops are materialized to the backing buffer. */
+  async materialize(): Promise<void> {
+    this._ensureNotDisposed();
+    await this._flushFusedAffine();
   }
 
   /**

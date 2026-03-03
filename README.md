@@ -15,6 +15,8 @@ A lightweight WebGPU wrapper for data processing and math. No WGSL required. Aut
 - **Universal fallback** — WebGPU → WebGL2 → CPU. Runs in Safari, Firefox, Node, and headless.
 - **Shape inference** — Matmul and ML ops automatically infer dimensions.
 - **Performance** — WebGPU delivers 2–3× speedups over WebGL for compute; ~20× faster than CPU on large matmul (Chrome, M3 MacBook).
+- **Accelerated ops** — `conv2d`, `maxPool2d`, `avgPool2d`, `fft`, `ifft`, and `fftMagnitude` run on WebGPU when available.
+- **Automatic scalar fusion** — chained scalar `add/sub/mul/div` are fused before execution.
 
 Compared to TensorFlow.js or GPU.js, accel-gpu offers a simpler API focused on core array operations without the overhead of a full ML framework.
 
@@ -79,6 +81,25 @@ Run `npm run build` first, then `npx serve .` — visit `/`, `/example/`, `/exam
 const gpu = await init();
 const gpu = await init({ forceCPU: true });   // Force CPU for testing
 const gpu = await init({ forceWebGL: true }); // Force WebGL2
+const gpu = await init({ forceCPU: true, worker: true }); // CPU ops in Web Worker (experimental)
+const gpu = await init({ forceCPU: true, preferWasmCPU: true, wasmModule }); // WASM CPU path (experimental)
+```
+
+Runtime flags:
+
+```js
+console.log(gpu.backendType);    // 'webgpu' | 'webgl' | 'cpu'
+console.log(gpu.workerEnabled);  // true when worker CPU runner is active
+console.log(gpu.cpuEngine);      // 'js' | 'wasm' when CPU backend is used
+```
+
+Scoped lifecycle:
+
+```js
+await gpu.scoped(async (ctx) => {
+  const tmp = ctx.array([1, 2, 3]);
+  await tmp.mul(2);
+}); // arrays created in scope are disposed on exit
 ```
 
 ### Create Arrays
@@ -135,6 +156,8 @@ const norm = gpu.randn([2, 3]);     // standard normal
 | `qr(gpu, a)`                      | QR decomposition                  |
 | `svd(gpu, a)`                     | Singular value decomposition      |
 
+`inv`, `qr`, and `svd` use iterative WebGPU paths when running on WebGPU backend, with CPU fallback.
+
 ### ML Primitives
 
 | Function                                           | Description                 |
@@ -155,6 +178,15 @@ const norm = gpu.randn([2, 3]);     // standard normal
 | `ifft(gpu, input)` | Inverse FFT |
 | `fftMagnitude(gpu, complex)` | Magnitude spectrum |
 | `spectrogram(gpu, input, frameLength, hopLength?, window?)` | STFT + magnitude |
+
+`fft`, `ifft`, and `fftMagnitude` use WebGPU kernels when running on WebGPU backend, with CPU/WebGL fallback.
+
+### Training Helpers
+
+| Function | Description |
+| -------- | ----------- |
+| `gradients(gpu, params, lossFn, epsilon?)` | Numerical gradients (central differences) |
+| `sgdStep(params, grads, learningRate)` | SGD update: `param -= lr * grad` |
 
 ### Profiling
 
@@ -185,6 +217,11 @@ const data = await arr.toArray(); // Float32Array
 1. **WebGPU** — Chrome 113+, Edge 113+ (best performance)
 2. **WebGL2** — Safari, Firefox, older Chrome (GPU-accelerated)
 3. **CPU** — Node, headless, or when no GPU available
+
+## Troubleshooting
+
+- `GET /.well-known/appspecific/com.chrome.devtools.json` returning `404` in local server logs is a Chrome DevTools probe and is harmless.
+- `304` responses for files like `dist/index.js` and source maps are normal cache revalidation, not runtime failures.
 
 ## Contributing
 

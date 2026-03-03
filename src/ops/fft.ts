@@ -5,6 +5,7 @@
 
 import type { GPUArray } from "../array";
 import type { AccelContext } from "../types";
+import type { KernelRunner } from "../backend/kernel-runner";
 
 /** In-place Cooley-Tukey FFT. Input: interleaved real/imag, length must be power of 2. */
 function fft1dCPU(data: Float32Array, inverse = false): void {
@@ -71,6 +72,20 @@ export async function fft(
   if ((n & (n - 1)) !== 0) {
     throw new Error(`fft: length must be power of 2, got ${n}`);
   }
+  if (ctx.backendType === "webgpu") {
+    await input.materialize();
+    const G = (globalThis as any).GPUBufferUsage;
+    const usage = G.STORAGE | G.COPY_SRC | G.COPY_DST;
+    const out = ctx.backend.createBuffer(2 * n * 4, usage);
+    await (ctx.runner as KernelRunner).fftReal(
+      input.getBuffer() as GPUBuffer,
+      out as GPUBuffer,
+      n,
+      inverse
+    );
+    return new (await import("../array")).GPUArray(ctx.backend, ctx.runner, out, 2 * n, [n, 2]);
+  }
+
   const data = await input.toArray();
   const complex = new Float32Array(2 * n);
   for (let i = 0; i < n; i++) {
@@ -98,6 +113,25 @@ export async function ifft(ctx: AccelContext, input: GPUArray): Promise<GPUArray
   if (input.length % 2 !== 0) {
     throw new Error(`ifft: input length must be even (2*N complex), got ${input.length}`);
   }
+  if (ctx.backendType === "webgpu") {
+    await input.materialize();
+    const G = (globalThis as any).GPUBufferUsage;
+    const usage = G.STORAGE | G.COPY_SRC | G.COPY_DST;
+    const out = ctx.backend.createBuffer(input.length * 4, usage);
+    await (ctx.runner as KernelRunner).ifftComplex(
+      input.getBuffer() as GPUBuffer,
+      out as GPUBuffer,
+      input.length / 2
+    );
+    return new (await import("../array")).GPUArray(
+      ctx.backend,
+      ctx.runner,
+      out,
+      input.length,
+      [input.length / 2, 2]
+    );
+  }
+
   const data = await input.toArray();
   const complex = new Float32Array(data);
   fft1dCPU(complex, true);
@@ -119,6 +153,20 @@ export async function ifft(ctx: AccelContext, input: GPUArray): Promise<GPUArray
  * Output: real-valued magnitudes.
  */
 export async function fftMagnitude(ctx: AccelContext, complex: GPUArray): Promise<GPUArray> {
+  if (ctx.backendType === "webgpu") {
+    await complex.materialize();
+    const n = complex.length / 2;
+    const G = (globalThis as any).GPUBufferUsage;
+    const usage = G.STORAGE | G.COPY_SRC | G.COPY_DST;
+    const out = ctx.backend.createBuffer(n * 4, usage);
+    await (ctx.runner as KernelRunner).fftMagnitude(
+      complex.getBuffer() as GPUBuffer,
+      out as GPUBuffer,
+      n
+    );
+    return new (await import("../array")).GPUArray(ctx.backend, ctx.runner, out, n, [n]);
+  }
+
   const data = await complex.toArray();
   const n = data.length / 2;
   const mag = new Float32Array(n);

@@ -27,6 +27,10 @@ export interface AccelContext {
   runner: KernelRunner | WebGLRunner | CPURunner;
   /** Backend in use: 'webgpu' | 'webgl' | 'cpu' */
   backendType: "webgpu" | "webgl" | "cpu";
+  /** Whether Web Worker execution is active for CPU-heavy ops. */
+  workerEnabled?: boolean;
+  /** CPU execution engine when backendType is 'cpu'. */
+  cpuEngine?: "js" | "wasm";
   /** Enable profiling. When true, recordOp stores entries. */
   enableProfiling(enable: boolean): void;
   /** Manually record an op (e.g. after timing). Only works when profiling enabled. */
@@ -53,4 +57,6 @@ export interface AccelContext {
   fromImageData(imageData: ImageData): GPUArray;
   /** Render a GPU array to an HTMLCanvasElement (width×height). */
   toCanvas(arr: GPUArray, width: number, height: number): Promise<HTMLCanvasElement>;
+  /** Run work in a deterministic disposal scope. Arrays created inside are disposed on scope exit. */
+  scoped<T>(fn: (ctx: AccelContext) => Promise<T> | T): Promise<T>;
 }
