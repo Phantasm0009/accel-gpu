@@ -1,6 +1,6 @@
 # API Reference
 
-## Context Methods
+## Context
 
 - `init(options?)`
 - `gpu.array(data, shape?)`
@@ -11,13 +11,26 @@
 - `gpu.fromBuffer(buffer, options?)`
 - `gpu.scoped(fn)` / `gpu.tidy(fn)`
 
-## Core Ops
+## Math Ops
 
-- Math: `add`, `sub`, `mul`, `div`, `sum`, `max`, `min`, `mean`
-- Linalg: `matmul`, `dot`, `transpose`, `inv`, `det`, `solve`, `qr`, `svd`
-- ML: `softmax`, `layerNorm`, `batchNorm`, `attentionScores`, `conv2d`, `maxPool2d`, `avgPool2d`
-- Signal: `fft`, `ifft`, `fftMagnitude`, `spectrogram`
-- Training: `gradients`, `sgdStep`
+- `add`, `sub`, `mul`, `div`, `sum`, `max`, `min`, `mean`
+
+## Linear Algebra
+
+- `matmul`, `dot`, `transpose`, `inv`, `det`, `solve`, `qr`, `svd`
+
+## ML & Convolution
+
+- `softmax`, `layerNorm`, `batchNorm`, `attentionScores`
+- `conv2d`, `maxPool2d`, `avgPool2d`
+
+## Signal Processing
+
+- `fft`, `ifft`, `fftMagnitude`, `spectrogram`
+
+## Training
+
+- `gradients`, `sgdStep`
 
 ## Shape Notes
 

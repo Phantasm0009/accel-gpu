@@ -1,10 +1,39 @@
-# accel-gpu Docs
+---
+layout: home
 
-NumPy-style GPU arrays for the browser with automatic fallback: WebGPU → WebGL2 → CPU.
+hero:
+  name: "accel-gpu"
+  text: "NumPy for the browser GPU"
+  tagline: "WebGPU-first math with automatic WebGL2/CPU fallback."
+  actions:
+    - theme: brand
+      text: Quick Start
+      link: /guide/quickstart
+    - theme: alt
+      text: API Reference
+      link: /api
+    - theme: alt
+      text: Open Playground
+      link: https://phantasm0009.github.io/accel-gpu/playground/
 
-## Live Playground
+features:
+  - title: Zero-shader API
+    details: NumPy-style operations without writing WGSL.
+  - title: Smart fallback chain
+    details: WebGPU → WebGL2 → CPU for broad browser compatibility.
+  - title: Tree-shakeable modules
+    details: Import only what you need via math/linalg/ml/signal/data subpaths.
+  - title: Data interop
+    details: Arrow-like ingestion and raw ArrayBuffer/SharedArrayBuffer support.
+  - title: Memory safety
+    details: Use gpu.scoped/gpu.tidy with FinalizationRegistry fallback cleanup.
+  - title: Browser-tested
+    details: Cross-browser Playwright coverage on Chromium, Firefox, and WebKit.
+---
 
-<iframe src="https://phantasm0009.github.io/accel-gpu/playground/" width="100%" height="560" style="border:1px solid #ddd;border-radius:8px;"></iframe>
+## Try It Live
+
+<iframe src="https://phantasm0009.github.io/accel-gpu/playground/" width="100%" height="560"></iframe>
 
 ## Examples
 
@@ -15,7 +44,3 @@ NumPy-style GPU arrays for the browser with automatic fallback: WebGPU → WebGL
 - [N-Body](https://phantasm0009.github.io/accel-gpu/example/nbody/)
 - [Local Audio Transcriber](https://phantasm0009.github.io/accel-gpu/example/audio/)
 - [Vector Search (RAG)](https://phantasm0009.github.io/accel-gpu/example/vector-search/)
-
-## Embedded Demo
-
-<iframe src="https://phantasm0009.github.io/accel-gpu/example/" width="100%" height="480" style="border:1px solid #ddd;border-radius:8px;"></iframe>

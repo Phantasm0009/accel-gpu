@@ -23,6 +23,14 @@ copy("benchmark");
 copy("playground");
 copy("dist");
 
+const docsDist = join(root, "docs", ".vitepress", "dist");
+if (existsSync(docsDist)) {
+  cpSync(docsDist, deploy, {
+    recursive: true,
+    filter: (src) => !src.endsWith(join(".vitepress", "dist", "index.html")),
+  });
+}
+
 // Prevent Jekyll processing (ensures all files are served)
 writeFileSync(join(deploy, ".nojekyll"), "");
 

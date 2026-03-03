@@ -70,7 +70,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
-    "build:site": "npm run build && node scripts/build-site.js",
+    "build:site": "npm run build && npm run docs:build && node scripts/build-site.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
