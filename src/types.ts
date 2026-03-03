@@ -10,6 +10,10 @@ import type { WebGLRunner } from "./backend/webgl-runner";
 import type { CPURunner } from "./backend/cpu-runner";
 import type { GPUArray } from "./array";
 
+export interface ArrowImportOptions {
+  shape?: number[];
+}
+
 /** Profiling entry for a single op */
 export interface ProfilingEntry {
   op: string;
@@ -55,6 +59,8 @@ export interface AccelContext {
   randn(shape: number[]): GPUArray;
   /** Create a GPU-backed array from ImageData (RGBA, normalized to [0,1]). */
   fromImageData(imageData: ImageData): GPUArray;
+  /** Create a GPU-backed array from Apache Arrow-like column/vector data. */
+  fromArrow(column: unknown, options?: ArrowImportOptions): GPUArray;
   /** Render a GPU array to an HTMLCanvasElement (width×height). */
   toCanvas(arr: GPUArray, width: number, height: number): Promise<HTMLCanvasElement>;
   /** Run work in a deterministic disposal scope. Arrays created inside are disposed on scope exit. */

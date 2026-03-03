@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Runtime backend flags** — `gpu.workerEnabled`, `gpu.cpuEngine`
 - **Scoped lifecycle API** — `gpu.scoped(fn)` for deterministic disposal of temporary arrays
 - **Training helpers** — `gradients(...)` (numerical gradients) and `sgdStep(...)`
+- **Arrow interop** — Apache Arrow-like vector/column import via `fromArrow(...)` and `gpu.fromArrow(...)`
+- **Killer app demos** — `example/audio` (local audio spectrogram) and `example/vector-search` (browser-native vector search)
+- **Interactive docs playground** — embedded playground on landing page
 
 ### Changed
 

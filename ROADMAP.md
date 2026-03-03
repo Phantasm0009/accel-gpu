@@ -66,6 +66,7 @@
 ### Backend & Performance
 - WebAssembly CPU backend path via `init({ forceCPU: true, preferWasmCPU: true, wasmModule })` *(experimental)*
 - Web Worker CPU execution via `init({ forceCPU: true, worker: true })` *(experimental)*
+- Zero-copy Apache Arrow-like data import via `fromArrow(...)` and `gpu.fromArrow(...)`
 
 ### Optimization
 - Automatic scalar-chain fusion for `add/sub/mul/div` (affine fusion before materialization)
@@ -73,6 +74,11 @@
 ### Training
 - Numerical gradient computation utilities for training: `gradients(...)`
 - SGD update utility: `sgdStep(...)`
+
+### Demos & Adoption
+- Local audio transcriber/visualizer demo (`example/audio`) using FFT/spectrogram
+- Browser-native vector search demo (`example/vector-search`) for RAG-style cosine similarity
+- Interactive playground embedded directly in landing docs
 
 ### Memory Management
 - `FinalizationRegistry` best-effort cleanup for leaked arrays

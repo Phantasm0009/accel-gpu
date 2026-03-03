@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Browser-Native Vector Search — accel-gpu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0d1117; --bg2:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; }
+    body { font-family:"IBM Plex Sans",sans-serif; margin:0; padding:2rem; background:var(--bg); color:var(--text); }
+    .wrap { max-width:980px; margin:0 auto; }
+    .back a{ color:var(--muted); text-decoration:none; }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .card{ background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:1rem; }
+    textarea,input{ width:100%; background:#0b0f14; border:1px solid var(--border); border-radius:8px; color:var(--text); padding:.75rem; }
+    button{ margin-top:.75rem; background:var(--accent); color:#fff; border:0; border-radius:8px; padding:.6rem 1rem; cursor:pointer; }
+    pre{ background:#0b0f14; border:1px solid var(--border); border-radius:8px; padding:.75rem; min-height:210px; font-family:"IBM Plex Mono",monospace; }
+    .muted{ color:var(--muted); font-size:.9rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="back"><a href="../">← accel-gpu demos</a></div>
+    <h1>Browser-Native Vector Search (RAG-style)</h1>
+    <p class="muted">Upload text, build 100k local vectors, run cosine similarity with accel-gpu matmul fully in-browser.</p>
+
+    <div class="grid">
+      <div class="card">
+        <label>Corpus text file</label>
+        <input id="file" type="file" accept=".txt,text/plain" />
+        <label style="display:block;margin-top:.75rem;">Query</label>
+        <textarea id="query" rows="4">What does this document say about performance?</textarea>
+        <button id="build">Build index + search</button>
+        <p id="status" class="muted">Idle</p>
+      </div>
+      <div class="card">
+        <h3>Top matches</h3>
+        <pre id="out">No results yet.</pre>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { init, matmul, transpose } from "../../dist/index.js";
+
+    const DIM = 64;
+    const TARGET_VECTORS = 100000;
+
+    const fileEl = document.getElementById("file");
+    const queryEl = document.getElementById("query");
+    const outEl = document.getElementById("out");
+    const statusEl = document.getElementById("status");
+
+    function chunkText(text, chunkSize = 240) {
+      const chunks = [];
+      for (let i = 0; i < text.length; i += chunkSize) {
+        chunks.push(text.slice(i, i + chunkSize));
+      }
+      return chunks.filter(Boolean);
+    }
+
+    function embed(text) {
+      const v = new Float32Array(DIM);
+      for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i);
+        v[(c + i) % DIM] += 1;
+      }
+      let norm = 0;
+      for (let i = 0; i < DIM; i++) norm += v[i] * v[i];
+      norm = Math.sqrt(norm) || 1;
+      for (let i = 0; i < DIM; i++) v[i] /= norm;
+      return v;
+    }
+
+    function writeVector(dst, row, vec) {
+      for (let i = 0; i < DIM; i++) dst[row * DIM + i] = vec[i];
+    }
+
+    document.getElementById("build").onclick = async () => {
+      const file = fileEl.files?.[0];
+      if (!file) {
+        statusEl.textContent = "Upload a text file first.";
+        return;
+      }
+
+      const text = await file.text();
+      const chunks = chunkText(text, 240);
+      if (chunks.length === 0) {
+        statusEl.textContent = "No text chunks found.";
+        return;
+      }
+
+      statusEl.textContent = "Embedding corpus…";
+      const gpu = await init();
+
+      const N = TARGET_VECTORS;
+      const matrix = new Float32Array(N * DIM);
+      const sources = new Array(N);
+      for (let i = 0; i < N; i++) {
+        const src = chunks[i % chunks.length];
+        sources[i] = src;
+        const e = embed(src + " #" + i);
+        writeVector(matrix, i, e);
+      }
+
+      statusEl.textContent = "Uploading vectors to accel-gpu…";
+      const corpus = gpu.array(matrix, [N, DIM]);
+      const corpusT = await transpose(gpu, corpus, N, DIM); // [DIM, N]
+
+      statusEl.textContent = "Searching with GPU matmul…";
+      const q = embed(queryEl.value || "");
+      const qArr = gpu.array(q, [1, DIM]);
+      const sims = await matmul(gpu, qArr, corpusT, 1, N, DIM);
+      const scores = await sims.toArray();
+
+      const topK = 5;
+      const idx = Array.from(scores.keys()).sort((a, b) => scores[b] - scores[a]).slice(0, topK);
+      const lines = idx.map((i, rank) => `${rank + 1}. score=${scores[i].toFixed(4)}\n${sources[i].slice(0, 180)}\n`);
+      outEl.textContent = lines.join("\n");
+      statusEl.textContent = `Backend: ${gpu.backendType} · searched ${N.toLocaleString()} vectors`;
+    };
+  </script>
+</body>
+</html>

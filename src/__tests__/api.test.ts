@@ -15,6 +15,7 @@ import {
   batchNorm,
   gradients,
   sgdStep,
+  fromArrow,
 } from "../../dist/index.js";
 
 describe("accel-gpu API", () => {
@@ -337,6 +338,22 @@ describe("accel-gpu API", () => {
     expect(out[0]).toBeCloseTo(4, 5);
     expect(out[1]).toBeCloseTo(5.5, 5);
     expect(out[2]).toBeCloseTo(7, 5);
+  });
+
+  it("arrow import helper + ctx.fromArrow", async () => {
+    const mockArrowVector = {
+      data: [{ values: new Float32Array([1, 2, 3, 4]) }],
+    };
+
+    const a = fromArrow(gpu, mockArrowVector, { shape: [2, 2] });
+    const aData = await a.toArray();
+    expect(aData[0]).toBe(1);
+    expect(aData[3]).toBe(4);
+
+    const b = gpu.fromArrow(new Int32Array([5, 6, 7]));
+    const bData = await b.toArray();
+    expect(bData[0]).toBe(5);
+    expect(bData[2]).toBe(7);
   });
 
   it("norm, outer, mse, crossEntropy", async () => {

@@ -21,9 +21,10 @@ import type { AccelContext } from "./types";
 import type { WebGPUBackend } from "./backend/webgpu";
 import type { WebGLBackend } from "./backend/webgl-backend";
 import type { CPUBackend } from "./backend/cpu-backend";
+import { fromArrow as fromArrowOp } from "./ops/arrow";
 
 export { GPUArray } from "./array";
-export type { AccelContext, ProfilingEntry } from "./types";
+export type { AccelContext, ProfilingEntry, ArrowImportOptions } from "./types";
 
 /**
  * Options for initializing the Accel GPU context.
@@ -199,6 +200,9 @@ export async function init(options?: InitOptions): Promise<AccelContext> {
       for (let i = 0; i < data.length; i++) floats[i] = data[i] / 255;
       return ctx.array(floats, [height, width, 4]);
     },
+    fromArrow(column: unknown, options?: import("./types").ArrowImportOptions): GPUArray {
+      return fromArrowOp(ctx, column, options);
+    },
     async toCanvas(arr: GPUArray, width: number, height: number): Promise<HTMLCanvasElement> {
       const canvas = document.createElement("canvas");
       canvas.width = width;
@@ -242,3 +246,5 @@ export { maxPool2d, avgPool2d, conv2d } from "./ops/conv";
 export { fft, ifft, fftMagnitude, spectrogram } from "./ops/fft";
 /** Training helpers: numerical gradients and SGD updates. */
 export { gradients, sgdStep } from "./ops/training";
+/** Data interoperability: Apache Arrow-like zero-copy import helpers. */
+export { fromArrow } from "./ops/arrow";

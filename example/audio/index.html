@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Local Audio Transcriber Demo — accel-gpu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0d1117; --bg2:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; }
+    body { font-family:"IBM Plex Sans",sans-serif; background:var(--bg); color:var(--text); margin:0; padding:2rem; }
+    .wrap { max-width:900px; margin:0 auto; }
+    .back a{ color:var(--muted); text-decoration:none; }
+    .card{ background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:1rem; margin-top:1rem; }
+    canvas { width:100%; max-width:860px; background:#0b0f14; border-radius:8px; }
+    input,button{ margin-top:.5rem; }
+    #tokens{ font-family:"IBM Plex Mono",monospace; white-space:pre-wrap; color:#9cdcfe; }
+    .muted{ color:var(--muted); font-size:.9rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="back"><a href="../">← accel-gpu demos</a></div>
+    <h1>Local Audio Transcriber / Visualizer</h1>
+    <p class="muted">Upload audio → GPU spectrogram → simple local tokenization preview (no cloud calls).</p>
+
+    <div class="card">
+      <input id="file" type="file" accept="audio/*" />
+      <button id="run">Process</button>
+      <p id="status" class="muted">Idle</p>
+    </div>
+
+    <div class="card">
+      <h3>Spectrogram</h3>
+      <canvas id="spec" width="860" height="320"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Local Transcript Tokens (demo)</h3>
+      <div id="tokens">No output yet.</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { init, spectrogram } from "../../dist/index.js";
+
+    const fileEl = document.getElementById("file");
+    const runEl = document.getElementById("run");
+    const statusEl = document.getElementById("status");
+    const tokensEl = document.getElementById("tokens");
+    const canvas = document.getElementById("spec");
+    const ctx2d = canvas.getContext("2d");
+
+    function normalize(arr) {
+      let min = Infinity, max = -Infinity;
+      for (const v of arr) { if (v < min) min = v; if (v > max) max = v; }
+      const out = new Float32Array(arr.length);
+      const denom = Math.max(1e-8, max - min);
+      for (let i = 0; i < arr.length; i++) out[i] = (arr[i] - min) / denom;
+      return out;
+    }
+
+    function drawSpectrogram(data, frames, bins) {
+      const img = ctx2d.createImageData(frames, bins);
+      for (let f = 0; f < frames; f++) {
+        for (let b = 0; b < bins; b++) {
+          const v = data[f * bins + b];
+          const y = bins - 1 - b;
+          const idx = (y * frames + f) * 4;
+          const r = Math.round(255 * Math.max(0, Math.min(1, v * 1.2)));
+          const g = Math.round(255 * Math.max(0, Math.min(1, 1 - Math.abs(v - 0.5) * 2)));
+          const bl = Math.round(255 * Math.max(0, Math.min(1, 1 - v)));
+          img.data[idx] = r;
+          img.data[idx + 1] = g;
+          img.data[idx + 2] = bl;
+          img.data[idx + 3] = 255;
+        }
+      }
+      const off = document.createElement("canvas");
+      off.width = frames; off.height = bins;
+      off.getContext("2d").putImageData(img, 0, 0);
+      ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+      ctx2d.drawImage(off, 0, 0, canvas.width, canvas.height);
+    }
+
+    function tokenPreview(spec, bins) {
+      const bands = [0, 0, 0, 0];
+      for (let i = 0; i < spec.length; i++) {
+        const b = i % bins;
+        if (b < bins * 0.1) bands[0] += spec[i];
+        else if (b < bins * 0.3) bands[1] += spec[i];
+        else if (b < bins * 0.6) bands[2] += spec[i];
+        else bands[3] += spec[i];
+      }
+      const words = ["silence", "low", "mid", "high"];
+      return bands.map((v, i) => `${words[i]}:${v.toFixed(1)}`).join("  ");
+    }
+
+    runEl.onclick = async () => {
+      const file = fileEl.files?.[0];
+      if (!file) {
+        statusEl.textContent = "Pick an audio file first.";
+        return;
+      }
+      statusEl.textContent = "Decoding audio…";
+      const audioCtx = new AudioContext();
+      const buf = await file.arrayBuffer();
+      const audio = await audioCtx.decodeAudioData(buf);
+      const channel = audio.getChannelData(0);
+
+      statusEl.textContent = "Running accel-gpu spectrogram…";
+      const gpu = await init();
+      const arr = gpu.array(new Float32Array(channel));
+      const frameLength = 512;
+      const hop = 256;
+      const spec = await spectrogram(gpu, arr, frameLength, hop, "hann");
+      const specData = await spec.toArray();
+
+      const bins = Math.floor(frameLength / 2) + 1;
+      const frames = Math.floor(specData.length / bins);
+      drawSpectrogram(normalize(specData), frames, bins);
+      tokensEl.textContent = tokenPreview(specData, bins);
+      statusEl.textContent = `Backend: ${gpu.backendType} · frames=${frames} bins=${bins}`;
+    };
+  </script>
+</body>
+</html>

@@ -154,6 +154,8 @@
       <a href="example/heatmap/">Heatmap</a>
       <a href="example/nn/">Neural Net</a>
       <a href="example/nbody/">N-Body</a>
+      <a href="example/audio/">Audio</a>
+      <a href="example/vector-search/">Vector Search</a>
       <a href="benchmark/">Benchmarks</a>
       <a href="playground/">Playground</a>
       <a href="https://github.com/Phantasm0009/accel-gpu#readme" target="_blank" rel="noopener">API</a>
@@ -225,6 +227,10 @@ console.log(await x.toArray()); // [4, 6, 8, 10]</code></pre>
 const normed = await layerNorm(gpu, x, gamma, beta);
 const scores = await attentionScores(gpu, Q, K);
 const spec = await spectrogram(gpu, signal, 256, 128);</code></pre>
+
+  <h2>Interactive Playground</h2>
+  <p>Edit and run code directly inside docs to get a &lt;10s first result.</p>
+  <iframe src="playground/" title="accel-gpu playground" style="width:100%;height:520px;border:1px solid var(--border);border-radius:8px;background:var(--bg-elevated);"></iframe>
 
     <h2>Scoped lifecycle</h2>
     <pre><code>await gpu.scoped(async (ctx) => {

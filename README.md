@@ -17,6 +17,7 @@ A lightweight WebGPU wrapper for data processing and math. No WGSL required. Aut
 - **Performance** — WebGPU delivers 2–3× speedups over WebGL for compute; ~20× faster than CPU on large matmul (Chrome, M3 MacBook).
 - **Accelerated ops** — `conv2d`, `maxPool2d`, `avgPool2d`, `fft`, `ifft`, and `fftMagnitude` run on WebGPU when available.
 - **Automatic scalar fusion** — chained scalar `add/sub/mul/div` are fused before execution.
+- **Arrow interop** — import Apache Arrow-like vectors/columns via `fromArrow(...)` and `gpu.fromArrow(...)`.
 
 Compared to TensorFlow.js or GPU.js, accel-gpu offers a simpler API focused on core array operations without the overhead of a full ML framework.
 
@@ -68,6 +69,8 @@ console.log(await probs.toArray());
 - **[Heatmap](https://phantasm0009.github.io/accel-gpu/example/heatmap/)** — GPU-computed 2D data visualization
 - **[Neural Network](https://phantasm0009.github.io/accel-gpu/example/nn/)** — Feedforward inference (MNIST-style)
 - **[N-Body](https://phantasm0009.github.io/accel-gpu/example/nbody/)** — Gravitational particle simulation
+- **[Local Audio Transcriber](https://phantasm0009.github.io/accel-gpu/example/audio/)** — In-browser spectrogram visualizer + local token preview
+- **[Vector Search (RAG)](https://phantasm0009.github.io/accel-gpu/example/vector-search/)** — Browser-native cosine search over large vector sets
 - **[Benchmarks](https://phantasm0009.github.io/accel-gpu/benchmark/)** — WebGPU vs WebGL vs CPU performance
 - **[Playground](https://phantasm0009.github.io/accel-gpu/playground/)** — Interactive code editor
 
@@ -100,6 +103,15 @@ await gpu.scoped(async (ctx) => {
   const tmp = ctx.array([1, 2, 3]);
   await tmp.mul(2);
 }); // arrays created in scope are disposed on exit
+```
+
+Arrow interoperability:
+
+```js
+// Apache Arrow-like vector/column
+const arr = gpu.fromArrow(arrowColumn, { shape: [rows, cols] });
+// or function form
+const arr2 = fromArrow(gpu, arrowVector);
 ```
 
 ### Create Arrays
