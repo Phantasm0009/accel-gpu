@@ -125,7 +125,7 @@
 - Added bundle-size smoke checks for `math`, `linalg`, `ml`, `signal`, `data`, and main entrypoints
 - Wired bundle verification into CI to catch size regressions
 
-## Status Notes (Gemini Review Alignment)
+## Status Notes
 
 - Safety layer (`tidy`/`scoped` + `FinalizationRegistry`): implemented
 - Subpath exports and tree-shaking setup: implemented
