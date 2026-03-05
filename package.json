@@ -66,6 +66,7 @@
     "url": "https://github.com/Phantasm0009/accel-gpu/issues"
   },
   "homepage": "https://phantasm0009.github.io/accel-gpu/",
+  "author": "Aditya Tiwari",
   "license": "MIT",
   "sideEffects": false,
   "scripts": {
