@@ -4,6 +4,16 @@ All notable changes to accel-gpu will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.0.2] - 2026-03-04
+
+### Fixed
+
+- **WebKit browser consistency failure** — hardened WebGL `matmul` shader indexing math to use integer coordinate paths, eliminating intermittent `maxAbs: 154` drift in Playwright WebKit runs
+
+### Changed
+
+- **Backend consistency reliability** — `matmul` cross-backend checks now pass consistently across Chromium, Firefox, and WebKit in CI
+
 ## [1.0.1] - 2026-03-04
 
 ### Added
