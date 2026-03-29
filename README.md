@@ -4,7 +4,7 @@
   <img src="icon.png" alt="accel-gpu" width="64" height="64">
 </p>
 
-**NumPy for the browser GPU — zero shaders, zero dependencies.**
+**NumPy for the browser GPU — zero shaders, zero dependencies. test**
 
 A lightweight WebGPU wrapper for data processing and math. No WGSL required. Automatic fallback to WebGL2 or CPU. Perfect for local-first AI, data dashboards, and heavy array computations.
 
